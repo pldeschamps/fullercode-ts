@@ -1,0 +1,364 @@
+/* styles.css */
+:root{
+--bg: #000c18;
+--text: #2277ff;
+--black: #000;
+}
+
+
+*{box-sizing:border-box}
+html,body{width: 100%;
+  margin: 0;
+  padding: 0;
+  height: auto; /* allow body to grow when children are taller than viewport */
+  overflow-x: hidden;
+  overflow-y: auto;}
+  #cesiumContainer{
+  position:fixed;
+    width: 100vw;
+  height: 650px;
+  margin: 0;
+  padding: 0;
+  /* overflow: hidden; */
+  }
+#cesiumContainer:fullscreen,
+ :-webkit-full-screen #cesiumContainer {
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    }
+/* #cesiumContainer:fullscreen ~ *,
+:-webkit-full-screen #cesiumContainer ~ * {
+  display: none;
+} */
+:fullscreen body > *:not(#cesiumContainer),
+:-webkit-full-screen body > *:not(#cesiumContainer) {
+  display: none !important;
+}
+#cameraWidget {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(10, 2, 122, 0.8);
+  color: #fc56e0;
+  font-family: monospace;
+  font-size: 1.4em;
+  padding: 6px 10px;
+  border-radius: 6px;
+  pointer-events: none; /* ne bloque pas les clics sur la carte */
+  z-index: 100000;
+}
+#fullerCodeWidget {
+  position: absolute;
+  top: 60px;
+  left: 10px;
+  background: rgba(10, 2, 122, 0.8);
+  color: #56fc8d;
+  font-family: monospace;
+  font-size: 1.4em;
+  padding: 6px 10px;
+  border-radius: 6px;
+  z-index: 100000;
+}
+
+#fullerCodeInput {
+  position: absolute;
+  top: 110px;
+  left: 10px;
+  background: rgba(10, 2, 122, 0.8);
+  color: #f0ff6a;
+  font-family: monospace;
+  font-size: 1.4em;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #f0ff6a;
+  z-index: 100000;
+  width: 200px;
+}
+
+#triangleDetails {
+  position: absolute;
+  display: none;
+  top: 154px;
+  left: 10px;
+  max-width: min(420px, calc(100vw - 20px));
+  background: rgba(10, 2, 122, 0.9);
+  color: #f0ff6a;
+  font-family: monospace;
+  font-size: 1em;
+  line-height: 1.35;
+  padding: 8px 10px;
+  border: 1px solid #f0ff6a;
+  border-radius: 6px;
+  z-index: 100000;
+  pointer-events: none;
+}
+
+#triangleDetails.visible {
+  display: block;
+}
+
+/* Copy button next to the fullerCodeWidget */
+.fullerCodeCopy {
+  position: absolute; /* positioned by JS (left/top) */
+  z-index: 100000;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(86,252,141,0.9);
+  background: rgba(10,2,122,0.8);
+  color: #56fc8d;
+  font-family: monospace;
+  font-size: 1.4em;
+  cursor: pointer;
+  height: 32px;
+}
+
+/* Share button style */
+.fullerCodeShare {
+  position: absolute;
+  z-index: 100000;
+  padding: 2px 2px;
+  border-radius: 6px;
+  border: 1px solid #f0ff6a;
+  background: rgba(10, 2, 122, 0.8);
+  color: #f0ff6a;
+  font-family: monospace;
+  font-size: 1.4em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.herewego {
+    background: #fff;
+    mix-blend-mode: multiply;
+}
+
+.fullerCodeCenter {
+  position: absolute;
+  z-index: 100000;
+  padding: 2px 2px;
+  border-radius: 6px;
+  border: 1px solid #6ae6ff;
+  background: rgba(10, 2, 122, 0.8);
+  color: #6ae6ff;
+  font-family: monospace;
+  font-size: 1.4em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullerCodeCenter {
+  width: 32px;
+  height: 32px;
+}
+
+.fullerCodeCenter svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Share menu */
+.shareMenu {
+  position: absolute;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(10, 2, 122, 0.95);
+  border: 1px solid #f0ff6a;
+  border-radius: 6px;
+  padding: 8px;
+  z-index: 100001;
+  min-width: 160px;
+}
+
+.shareMenu.visible {
+  display: flex;
+}
+
+.shareOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(240, 255, 106, 0.5);
+  border-radius: 4px;
+  color: #f0ff6a;
+  font-family: monospace;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shareOption:hover {
+  background: rgba(0, 0, 0, 0.6);
+  border-color: #f0ff6a;
+  box-shadow: 0 0 8px rgba(240, 255, 106, 0.3);
+}
+
+.shareOption .app-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.fullerCodeCopy:active,
+.fullerCodeCopy:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(86,252,141,0.12);
+}
+body{
+margin:0;
+font-family: Consolas, 'Courier New', Courier, monospace;
+background:var(--bg);
+color:var(--text);
+-webkit-font-smoothing:antialiased;
+-moz-osx-font-smoothing:grayscale;
+}
+.container{
+max-width:1100px;
+margin:0 auto;
+padding:1rem;
+}
+.compact {
+  line-height: 1em;
+}
+
+.site-header{
+background:#223355;
+border-bottom:1px solid rgba(0,0,0,0.06);
+position:sticky;
+top:0;
+left:0;
+right:0;
+z-index:1000;
+}
+.site-header .container{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:1rem;
+}
+.logo{
+margin:0;
+font-size:1.25rem;
+}
+
+
+.main-nav ul{
+list-style:none;
+margin:0;
+padding:0;
+display:flex;
+gap:0.75rem;
+}
+
+
+.main-nav a{
+display:inline-block;
+padding:0.5rem 0.9rem;
+background:var(--black);
+color:#f280d0;
+text-decoration:none;
+border-radius:6px;
+font-weight:700;
+letter-spacing:0.02em;
+}
+
+
+.hero{
+padding: 1rem 0;
+}
+.hero h2{
+margin-top:0;
+}
+
+
+.content-cards{
+display:flex;
+gap:1rem;
+flex-wrap:wrap;
+}
+.card{
+background:#b0b0b0;
+padding:1rem;
+border-radius:8px;
+box-shadow:0 2px 6px rgba(0,0,0,0.04);
+flex:1 1 220px;
+}
+
+
+.site-footer{
+padding:1rem 0;
+text-align:center;
+color:rgba(0,0,0,0.6);
+}
+
+
+@media (max-width:700px){
+.main-nav ul{
+flex-wrap:wrap;
+justify-content:center;
+}
+  .container { padding: 0.5rem; }
+}
+
+/* On small screens make the Cesium container part of the document flow so the page can scroll
+   and users can reach controls (fullscreen, etc.). Desktop keeps fixed for layout.
+*/
+@media (max-width:700px) {
+  #cesiumContainer {
+    position: relative;
+    width: 100%;
+    /* use the full viewport height minus the fixed header so the Cesium view fills the screen */
+    height: 70vh;
+    margin-top: 0;
+    overflow: hidden;
+  }
+
+  /* New rule for hero section on small screens */
+  .hero {
+    padding: 0.2rem 0; 
+  }
+  .hero p {
+    margin: 0; /* Supprime les marges du paragraphe qui créent du vide */
+    font-size: 1.2em;
+  }
+
+  /* Rendre les éléments de navigation plus compacts sur les petits écrans */
+  .main-nav a {
+    padding: 0.4rem 0.6rem;
+    font-size: 1em; /* On rétablit une taille lisible */
+  }
+  .main-nav ul {
+    gap: 0.5rem; /* Espacement réduit entre les éléments */
+  }
+}
+
+/* Copy button next to the fullerCodeWidget */
+.fullercode-copy {
+  position: absolute; /* positioned by JS (left/top) */
+  z-index: 100000;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(86,252,141,0.9);
+  background: rgba(10,2,122,0.8);
+  color: #56fc8d;
+  font-family: monospace;
+  font-size: 1.0em;
+  cursor: pointer;
+}
+
+.fullercode-copy:active,
+.fullercode-copy:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(86,252,141,0.12);
+}

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QV6F9D5NG0"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-QV6F9D5NG0');
+    </script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.133/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.133/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" media="all"
+          href="base.css" />
+    <link rel="stylesheet" href="styles.css">
+    <style>
+
+    </style>
+    <title>fullercode.org</title>
+    <!-- Include the CesiumJS JavaScript and CSS files -->
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <!--<h1 class="logo">fullercode.org</h1>-->
+            <nav class="main-nav" aria-label="Main navigation">
+                <ul>
+                    <li><a href="/index.html">Home</a></li>
+                    <li><a href="/underthehood.html">Under the hood</a></li>
+                    <li><a href="https://github.com/pldeschamps/fullercode-js">Github</a></li>
+                    <li><a href="/index.html#cesiumjs">3D demo</a></li>
+                    <!-- <li><div id="cameraLabel">Position</div></li> -->
+                </ul>
+            </nav>
+
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <br />
+            
+            <pre style="line-height: 1.1;">
+  ____
+__\  /__/\/\
+\fullercode/ .org
+/__/\/\__\
+</pre>
+            <a id="purpose">
+                <h2>Purpose</h2>
+            </a>
+
+            To provide a universal, global, unambiguous, free, open & simple geocode system.
+            The most secure and efficient way to communicate coordinates over voice channels.
+
+            <br>
+            <a id="fuller"><h2>Fuller projection</h2></a>
+            The Fuller projection is an icosahedron map projection of the entire Earth's surface onto 20 triangles.<br>
+            <a href="https://en.m.wikipedia.org/wiki/Dymaxion_map">
+                https://en.m.wikipedia.org/wiki/Dymaxion_map
+            </a>
+            <br>
+            <a id="geocode"><h2>Fullercode geocode</h2></a>
+
+            Fullercode assigns a character to each triangle and then divides the triangle into 16 smaller triangles:
+            Fullercode is a hierarchical and regular Discrete Global Grid (DGG).<br>
+            <a href="https://en.m.wikipedia.org/wiki/Discrete_global_grid">
+                https://en.m.wikipedia.org/wiki/Discrete_global_grid
+            </a>
+            <br>
+            <br>
+            <a id="alphabet"><h2>Alphabet</h2></a>
+            Fullercode uses an unambiguous alphabet of 16 characters, plus 4 additional ones for the 20 triangles of the icosahedron:
+            <br>
+            A C F H M P R T V X 2 3 5 7 8 9  <br>
+            N S K J  <br>
+            These characters were chosen to avoid any ambiguity.
+            <br>
+            <br>
+            <a id="icosahedron"><h2>Icosahedron</h2></a>
+            The icosahedron is made of 20 equilateral triangles. Each triangle is identified by a letter:
+            <br>
+            <pre style="line-height: 1.1;">
+Vestbrakan in Norway
+   /\    /\    /\    /\    /\  
+  /X \  /C \  /N \  /P \  /M \ 
+ /____\/____\/____\/____\/____\
+ \    /\    /\    /\    /\    /\
+  \V /3 \T /J \7 /9 \H /A \F /5 \
+   \/____\/____\/____\/____\/____\
+    \    /\    /\    /\    /\    /
+     \2 /  \K /  \8 /  \R /  \S /
+      \/    \/    \/    \/    \/
+South Pacific
+            </pre>
+            <br>
+             <a id="subtriangles"><h2>Subtriangles</h2></a>
+            Every face has three summits identified by 0 (the closest summit to Vestbrakan or the South Pacific), 1 and 2 clockwise.
+            Each face is further divided into 16 smaller triangles, and so on.
+
+            Fullercode assigns an index to each of the 16 smaller triangles in the same way but assigns a chararcter depending on the pattern of the subtriangles.
+            
+            The smaller triangle in the middle has index 0 and always refered as "C".
+            The other triangles are numbered from 1 to 15 as follows:
+            <br>
+            <pre style="line-height: 1.1;">
+            Indexes              
+                (0)                
+                /\               
+               /1 \              
+              /____\             
+             /\  2 /\            
+            /15\  /3 \           
+           /____\/____\          
+          /\ 14 /\  4 /\         
+         /13\  /0 \  / 5\        
+        /____\/____\/____\       
+       /\12  /\    /\    /\      
+      /11\  /10\ 9/ 8\ 7/6 \     
+     /____\/____\/____\/____\    
+   (2)                      (1)   
+
+ Example: Faces 'M' and '5' have
+the same pattern of subtriangles:
+indexes: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+pattern: C A 2 H 5 P X 9 V 8 T  R  7  M  3  F
+
+                (0)
+                /\
+               /A \
+              /____\
+             /\ 2  /\
+            / F\  /H \
+           /____\/____\
+          /\ 3  /\  5 /\
+         /M \  /C \  / P\
+        /____\/____\/____\
+       /\ 7  /\  8 /\    /\
+      / R\  /T \  / V\ 9/X \
+     /____\/____\/____\/____\
+   (2)                      (1)
+</pre>
+<br>
+There are 20 triangles and 10 different patterns of subtriangles to avoid that adjacent triangles have the same character on their common edge or summit.
+patterns can be found in the json file <a href="icosahedron.json">icosahedron.json</a>.
+<br>
+<br>
+
+            <a id="contact"><h2>Contact</h2></a>
+            The code will initially be available in JavaScript.<br>
+            <a href="https://github.com/pldeschamps/fullercode-js">
+                https://github.com/pldeschamps/fullercode-js
+            </a>
+            <br>
+
+            For any further information, please contact jdd dot almicantarat at gmail dot com.<br>
+        </section>
+
+        
+        
+        
+    </main>
+    
+</body>
+</html>

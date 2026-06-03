@@ -1,0 +1,178 @@
+{
+  "vertices": [
+    {
+      "id": 1,
+      "x": -0.414682220851542,
+      "y": 0.655962408702304,
+      "z": 0.630675807431286
+    },
+    {
+      "id": 2,
+      "x": 0.420152428828912,
+      "y": 0.078145249043253,
+      "z": 0.904082549660778
+    },
+    {
+      "id": 6,
+      "x": -0.5154559603719798,
+      "y": -0.3817168942575905,
+      "z": 0.7672009942351089
+    },
+    {
+      "id": 5,
+      "x": 0.3557813991100285,
+      "y": -0.8435800034654891,
+      "z": 0.40223422753474947
+    },
+    {
+      "id": 4,
+      "x": 0.9950094390590583,
+      "y": -0.09134780014578021,
+      "z": 0.04014717414595104
+    },
+    {
+      "id": 3,
+      "x": 0.5188367348275258,
+      "y": 0.8354203781459196,
+      "z": 0.1813318349657353
+    },
+    {
+      "id": 7,
+      "x": 0.414682220851542,
+      "y": -0.655962408702304,
+      "z": -0.630675807431286
+    },
+    {
+      "id": 8,
+      "x": -0.420152428828912,
+      "y": -0.078145249043253,
+      "z": -0.904082549660778
+    },
+    {
+      "id": 9,
+      "x": -0.5188367348275258,
+      "y": -0.8354203781459196,
+      "z": -0.1813318349657353
+    },
+    {
+      "id": 10,
+      "x": -0.9950094390590583,
+      "y": 0.09134780014578021,
+      "z": -0.04014717414595104
+    },
+    {
+      "id": 11,
+      "x": -0.3557813991100285,
+      "y": 0.8435800034654891,
+      "z": -0.40223422753474947
+    },
+    {
+      "id": 12,
+      "x": 0.5154559603719798,
+      "y": 0.3817168942575905,
+      "z": -0.7672009942351089
+    }
+  ],
+  "faces": [
+    {
+      "id": "P",
+      "vertices": [ 2, 5, 6 ],
+      "subtrianglesids": "C5PX9V8TR7M3FA2H"
+    },
+    {
+      "id": "M",
+      "vertices": [ 2, 4, 5 ],
+      "subtrianglesids": "CA2H5PX9V8TR7M3F"
+    },
+    {
+      "id": "X",
+      "vertices": [ 2, 3, 4 ],
+      "subtrianglesids": "CM3FA2H5PX9V8TR7"
+    },
+    {
+      "id": "C",
+      "vertices": [ 2, 1, 3 ],
+      "subtrianglesids": "CTR7M3FA2H5PX9V8"
+    },
+    {
+      "id": "N",
+      "vertices": [ 2, 6, 1 ],
+      "subtrianglesids": "C9V8TR7M3FA2H5PX"
+    },
+    {
+      "id": "V",
+      "vertices": [ 12, 4, 3 ],
+      "subtrianglesids": "C2AF3M7RT8V9XP5H"
+    },
+    {
+      "id": "5",
+      "vertices": [ 4, 12, 7 ],
+      "subtrianglesids": "CA2H5PX9V8TR7M3F"
+    },
+    {
+      "id": "F",
+      "vertices": [ 7, 5, 4 ],
+      "subtrianglesids": "CP5H2AF3M7RT8V9X"
+        },
+    {
+      "id": "S",
+      "vertices": [ 8, 7, 12 ],
+      "subtrianglesids": "CP5H2AF3M7RT8V9X"
+    },
+    {
+      "id": "A",
+      "vertices": [ 5, 7, 9 ],
+      "subtrianglesids": "C5PX9V8TR7M3FA2H"
+    },
+    {
+      "id": "J",
+      "vertices": [ 1, 10, 11 ],
+      "subtrianglesids": "CTR7M3FA2H5PX9V8"
+    },
+    {
+      "id": "9",
+      "vertices": [ 6, 9, 10 ],
+      "subtrianglesids": "C9V8TR7M3FA2H5PX"
+    },
+    {
+      "id": "H",
+      "vertices": [ 9, 6, 5 ],
+      "subtrianglesids": "CV9XP5H2AF3M7RT8"
+    },
+    {
+      "id": "R",
+      "vertices": [ 8, 9, 7 ],
+      "subtrianglesids": "CV9XP5H2AF3M7RT8"
+    },
+    {
+      "id": "3",
+      "vertices": [ 3, 11, 12 ],
+      "subtrianglesids": "CM3FA2H5PX9V8TR7"
+    },
+    {
+      "id": "T",
+      "vertices": [ 11, 3, 1 ],
+      "subtrianglesids": "C3M7RT8V9XP5H2AF"
+    },
+    {
+      "id": "K",
+      "vertices": [ 8, 11, 10 ],
+      "subtrianglesids": "C3M7RT8V9XP5H2AF"
+    },
+    {
+      "id": "7",
+      "vertices": [ 10, 1, 6 ],
+      "subtrianglesids": "CRT8V9XP5H2AF3M7"
+    },
+    {
+      "id": "8",
+      "vertices": [ 8, 10, 9 ],
+      "subtrianglesids": "CRT8V9XP5H2AF3M7"
+    },
+    {
+      "id": "2",
+      "vertices": [ 8, 12, 11 ],
+      "subtrianglesids": "C2AF3M7RT8V9XP5H"
+    }
+  ]
+}
