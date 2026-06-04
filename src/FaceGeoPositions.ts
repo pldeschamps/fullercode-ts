@@ -1,18 +1,18 @@
-import * as Cesium from 'cesium'
 import { RADIUS } from './state'
+import type { Vec3 } from './Vec3'
 
 export class FaceGeoPositions {
     faceId: string
-    vertices: Cesium.Cartesian3[]
+    vertices: Vec3[]
     subtrianglesIds: string
-    center: Cesium.Cartesian3
+    center: Vec3
     parentOrientation: boolean
-    v: Cesium.Cartesian3[]
+    v: Vec3[]
     ids: string[]
 
     constructor(
         faceId: string,
-        vertices: Cesium.Cartesian3[],
+        vertices: Vec3[],
         subtrianglesIds: string,
         parentOrientation = true
     ) {
@@ -25,8 +25,8 @@ export class FaceGeoPositions {
         this.center = this.computeCenter()
     }
 
-    private computeCenter(): Cesium.Cartesian3 {
-        if (this.vertices.length !== 3) return new Cesium.Cartesian3()
+    private computeCenter(): Vec3 {
+        if (this.vertices.length !== 3) return { x: 0, y: 0, z: 0 }
         let x = this.vertices[0].x + this.vertices[1].x + this.vertices[2].x
         let y = this.vertices[0].y + this.vertices[1].y + this.vertices[2].y
         let z = this.vertices[0].z + this.vertices[1].z + this.vertices[2].z
@@ -34,6 +34,6 @@ export class FaceGeoPositions {
         x = (x / length) * RADIUS
         y = (y / length) * RADIUS
         z = (z / length) * RADIUS
-        return new Cesium.Cartesian3(x, y, z)
+        return { x, y, z }
     }
 }

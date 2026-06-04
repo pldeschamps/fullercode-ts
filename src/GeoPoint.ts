@@ -1,11 +1,11 @@
-import * as Cesium from 'cesium'
 import { GeoCoord } from './GeoCoord'
 import { RADIUS } from './state'
+import type { Vec3 } from './Vec3'
 
 export class GeoPoint {
     id: string
     geo: GeoCoord | null
-    cart: Cesium.Cartesian3 | null
+    cart: Vec3 | null
 
     constructor(
         id: string,
@@ -17,18 +17,18 @@ export class GeoPoint {
     ) {
         this.id = id
         this.geo = lat !== null && lon !== null ? new GeoCoord(lat, lon) : null
-        this.cart = x !== null && y !== null && z !== null ? new Cesium.Cartesian3(x, y, z) : null
+        this.cart = x !== null && y !== null && z !== null ? { x, y, z } : null
     }
 
     computeXYZ(radius = RADIUS): void {
         if (this.geo) {
             const radLat = (this.geo.lat * Math.PI) / 180
             const radLon = (this.geo.lon * Math.PI) / 180
-            this.cart = new Cesium.Cartesian3(
-                radius * Math.cos(radLat) * Math.cos(radLon),
-                radius * Math.cos(radLat) * Math.sin(radLon),
-                radius * Math.sin(radLat)
-            )
+            this.cart = {
+                x: radius * Math.cos(radLat) * Math.cos(radLon),
+                y: radius * Math.cos(radLat) * Math.sin(radLon),
+                z: radius * Math.sin(radLat),
+            }
         }
     }
 

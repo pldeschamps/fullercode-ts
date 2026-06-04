@@ -1,6 +1,6 @@
-import * as Cesium from 'cesium'
 import { FaceGeoPositions } from './FaceGeoPositions'
-import { fullerData, RADIUS, getViewer } from './state'
+import { fullerData, RADIUS } from './state'
+import type { Vec3 } from './Vec3'
 
 interface IcosahedronVertex {
     id: number
@@ -20,35 +20,28 @@ interface IcosahedronData {
     faces: IcosahedronFace[]
 }
 
-export async function loadIcosahedron(): Promise<void> {
+interface IcosahedronLoadResult {
+    vertices: Array<{ id: number; pos: Vec3 }>
+}
+
+export async function loadIcosahedron(): Promise<IcosahedronLoadResult> {
     const response = await fetch('icosahedron.json')
     const data: IcosahedronData = await response.json()
-    const viewer = getViewer()
 
-    const verts: Record<number, Cesium.Cartesian3> = {}
-    data.vertices.forEach(v => {
-        const pos = Cesium.Cartesian3.fromElements(v.x * RADIUS, v.y * RADIUS, v.z * RADIUS)
+    const verts: Record<number, Vec3> = {}
+    const vertices = data.vertices.map(v => {
+        const pos: Vec3 = { x: v.x * RADIUS, y: v.y * RADIUS, z: v.z * RADIUS }
         verts[v.id] = pos
-        viewer.entities.add({
-            position: pos,
-            point: { pixelSize: 3, color: Cesium.Color.MAGENTA },
-            label: {
-                text: v.id.toString(),
-                font: '24px sans-serif',
-                pixelOffset: new Cesium.Cartesian2(0, -12),
-            },
-        })
+        return { id: v.id, pos }
     })
 
     const facesGeoPositions = data.faces.map(face => {
-        const positions = face.vertices.map(id => {
-            const vert = data.vertices.find(v => v.id === id)!
-            return Cesium.Cartesian3.fromElements(vert.x * RADIUS, vert.y * RADIUS, vert.z * RADIUS)
-        })
+        const positions = face.vertices.map(id => verts[id])
         return new FaceGeoPositions(face.id, positions, face.subtrianglesids)
     })
 
     fullerData.facesGeoPositions = facesGeoPositions
     fullerData.facesPositions = facesGeoPositions.map(f => f.vertices)
-    fullerData.viewer = viewer
+
+    return { vertices }
 }

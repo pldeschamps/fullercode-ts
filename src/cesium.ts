@@ -6,7 +6,17 @@ import { UnitSphereCartesian } from './UnitSphereCartesian'
 import { cross_product, dot_product } from './vectorOps'
 import { Subtriangles } from './Subtriangles'
 import { loadIcosahedron } from './fuller'
-import { fullerData, isMobile, setViewer, triangles, RADIUS } from './state'
+import { fullerData, isMobile, triangles, RADIUS } from './state'
+import type { Vec3 } from './Vec3'
+
+function toC3(v: Vec3): Cesium.Cartesian3 {
+    return new Cesium.Cartesian3(v.x, v.y, v.z)
+}
+
+function vec3Distance(a: Vec3, b: Vec3): number {
+    const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z
+    return Math.sqrt(dx * dx + dy * dy + dz * dz)
+}
 
 // ─── Cesium setup ────────────────────────────────────────────────────────────
 
@@ -43,7 +53,6 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyBox: false,
     skyAtmosphere: false,
 })
-setViewer(viewer)
 if (viewer.scene.sun) viewer.scene.sun.show = false
 if (viewer.scene.moon) viewer.scene.moon.show = false
 viewer.scene.globe.depthTestAgainstTerrain = false
@@ -83,15 +92,6 @@ function setTriangleHighlighted(entity: Cesium.Entity, highlighted: boolean): vo
     )
 }
 
-function getTrianglePositions(entity: Cesium.Entity): Cesium.Cartesian3[] {
-    const hierarchy = entity.polygon?.hierarchy
-    if (!hierarchy) return []
-    const value = typeof hierarchy.getValue === 'function'
-        ? hierarchy.getValue(viewer.clock.currentTime)
-        : (hierarchy as unknown as Cesium.PolygonHierarchy)
-    return (value as Cesium.PolygonHierarchy)?.positions ?? []
-}
-
 function formatVertex(position: Cesium.Cartesian3): string {
     const carto = Cesium.Cartographic.fromCartesian(position, sphereEllipsoid)
     return `${Cesium.Math.toDegrees(carto.latitude).toFixed(6)}, ${Cesium.Math.toDegrees(carto.longitude).toFixed(6)}`
@@ -104,11 +104,10 @@ function getCentralAngle(a: Cesium.Cartesian3, b: Cesium.Cartesian3): number {
     return Math.acos(dot)
 }
 
-function getSphericalTriangleArea(positions: Cesium.Cartesian3[]): number {
-    if (!positions || positions.length < 3) return 0
-    const a = getCentralAngle(positions[1], positions[2])
-    const b = getCentralAngle(positions[2], positions[0])
-    const c = getCentralAngle(positions[0], positions[1])
+function getSphericalTriangleArea(v0: Cesium.Cartesian3, v1: Cesium.Cartesian3, v2: Cesium.Cartesian3): number {
+    const a = getCentralAngle(v1, v2)
+    const b = getCentralAngle(v2, v0)
+    const c = getCentralAngle(v0, v1)
     const s = (a + b + c) / 2
     const tanProduct =
         Math.tan(s / 2) * Math.tan((s - a) / 2) * Math.tan((s - b) / 2) * Math.tan((s - c) / 2)
@@ -119,15 +118,17 @@ function getSphericalTriangleArea(positions: Cesium.Cartesian3[]): number {
 function formatArea(squareMeters: number): string {
     if (!Number.isFinite(squareMeters)) return '-'
     if (squareMeters >= 1_000_000) return `${(squareMeters / 1_000_000).toFixed(3)} km2`
-    return `${squareMeters.toFixed(0)} m2`
+    return `${squareMeters.toFixed(1)} m2`
 }
 
 function showTriangleDetails(entity: Cesium.Entity): void {
     if (!triangleDetailsLabel) return
     const triangleId = entity.id.substring('triangle '.length)
-    const positions = getTrianglePositions(entity)
-    const vertices = positions.slice(0, 3).map(formatVertex)
-    const area = getSphericalTriangleArea(positions)
+    const face = triangles.find(t => t.faceId === triangleId)
+    if (!face) return
+    const [c0, c1, c2] = face.vertices.map(toC3)
+    const vertices = [c0, c1, c2].map(formatVertex)
+    const area = getSphericalTriangleArea(c0, c1, c2)
     triangleDetailsLabel.innerHTML = `
         <div>code: ${triangleId}</div>
         <div>A: ${vertices[0] ?? '-'}</div>
@@ -397,7 +398,7 @@ fullerCodeInput.addEventListener('keypress', function (e: KeyboardEvent) {
 
 function flyToCode(code: string): void {
     if (!code) { console.log('invalid code'); return }
-    if (!fullerData.viewer) { console.log('Cannot fly: data not ready'); return }
+    if (!fullerData.facesGeoPositions) { console.log('Cannot fly: data not ready'); return }
 
     let targetTriangle = triangles.find(t => t.faceId === code)
     if (!targetTriangle) {
@@ -417,7 +418,7 @@ function flyToCode(code: string): void {
 
     if (targetTriangle) {
         try {
-            const carto = sphereEllipsoid.cartesianToCartographic(targetTriangle.center)
+            const carto = sphereEllipsoid.cartesianToCartographic(toC3(targetTriangle.center))
             viewer.camera.flyTo({
                 destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, cameraHeight, sphereEllipsoid),
                 orientation: { heading: 0.0, pitch: -Cesium.Math.PI_OVER_TWO, roll: 0.0 },
@@ -515,7 +516,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100)
 })
 
-loadIcosahedron().catch(err => console.error('Failed to load icosahedron:', err))
+loadIcosahedron().then(({ vertices }) => {
+    vertices.forEach(({ id, pos }) => {
+        viewer.entities.add({
+            position: toC3(pos),
+            point: { pixelSize: 3, color: Cesium.Color.MAGENTA },
+            label: {
+                text: id.toString(),
+                font: '24px sans-serif',
+                pixelOffset: new Cesium.Cartesian2(0, -12),
+            },
+        })
+    })
+}).catch(err => console.error('Failed to load icosahedron:', err))
 
 // ─── Camera events ────────────────────────────────────────────────────────────
 
@@ -526,15 +539,15 @@ updateCameraLabel()
 // ─── Polygon drawing ──────────────────────────────────────────────────────────
 
 function addPolygons(facesGeoPositions: FaceGeoPositions[], parentEntity: Cesium.Entity): void {
-    if (!facesGeoPositions || !fullerData.viewer) return
+    if (!facesGeoPositions) return
     facesGeoPositions.forEach(faceObj => {
         addPolygon(faceObj.vertices, faceObj.faceId, parentEntity, faceObj.center)
         triangles.push(faceObj)
     })
 }
 
-function geodesicEdge(v0: Cesium.Cartesian3, v1: Cesium.Cartesian3, n: number): Cesium.Cartesian3[] {
-    const pts: Cesium.Cartesian3[] = [v0]
+function geodesicEdge(v0: Vec3, v1: Vec3, n: number): Cesium.Cartesian3[] {
+    const pts: Cesium.Cartesian3[] = [toC3(v0)]
     for (let i = 1; i <= n; i++) {
         const t = i / (n + 1)
         const x = v0.x + t * (v1.x - v0.x)
@@ -547,10 +560,10 @@ function geodesicEdge(v0: Cesium.Cartesian3, v1: Cesium.Cartesian3, n: number): 
 }
 
 function addPolygon(
-    positions: Cesium.Cartesian3[],
+    positions: Vec3[],
     triangleId: string,
     parentEntity: Cesium.Entity,
-    center: Cesium.Cartesian3
+    center: Vec3
 ): void {
     const compact = window.innerWidth <= 700
     const n = triangleId.length <= 4 ? 16 : 4
@@ -577,7 +590,7 @@ function addPolygon(
     viewer.entities.add({
         id: 'label ' + triangleId,
         parent: parentEntity,
-        position: center,
+        position: toC3(center),
         label: {
             text: triangleId,
             font: labelFont,
@@ -590,7 +603,6 @@ function addPolygon(
 // ─── Camera label update ──────────────────────────────────────────────────────
 
 function updateCameraLabel(): void {
-    if (!fullerData.viewer) return
     const carto = viewer.camera.positionCartographic
     const lat = Cesium.Math.toDegrees(carto.latitude).toFixed(6)
     const lon = Cesium.Math.toDegrees(carto.longitude).toFixed(6)
@@ -601,7 +613,7 @@ function updateCameraLabel(): void {
 
 function findEnclosingTriangle(): void {
     const facesGeoPositions = fullerData.facesGeoPositions
-    if (!fullerData.viewer || !facesGeoPositions) return
+    if (!facesGeoPositions) return
 
     const cameraCartographic = viewer.camera.positionCartographic
     const cameraUnitSphere = new UnitSphereCartesian(cameraCartographic)
@@ -629,7 +641,7 @@ function findEnclosingTriangle(): void {
     let minDist = Number.POSITIVE_INFINITY
     let _closest: FaceGeoPositions | undefined
     for (const faceObj of facesGeoPositions) {
-        const dist = Cesium.Cartesian3.distance(cameraUnitSphere as unknown as Cesium.Cartesian3, faceObj.center)
+        const dist = vec3Distance(cameraUnitSphere, faceObj.center)
         if (dist < minDist) { minDist = dist; _closest = faceObj }
     }
     if (!_closest) return
@@ -791,7 +803,7 @@ function get2DEnclosingTriangle(
 // ─── Subtriangle management ───────────────────────────────────────────────────
 
 function addSubtriangles(closestFace: FaceGeoPositions, i: number): void {
-    if (!closestFace || !fullerData.viewer) return
+    if (!closestFace) return
     if (!addedSub.includes(closestFace.faceId)) {
         addedSub.push(closestFace.faceId)
         const st = new Subtriangles(closestFace)
