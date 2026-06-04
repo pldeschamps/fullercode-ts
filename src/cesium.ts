@@ -46,12 +46,14 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 setViewer(viewer)
 if (viewer.scene.sun) viewer.scene.sun.show = false
 if (viewer.scene.moon) viewer.scene.moon.show = false
+viewer.scene.globe.depthTestAgainstTerrain = false
 
 // ─── Triangle highlight state ─────────────────────────────────────────────────
 
 const TRIANGLE_DEFAULT_MATERIAL = Cesium.Color.BLUE.withAlpha(0.05)
+const TRIANGLE_TRANSPARENT_MATERIAL = Cesium.Color.TRANSPARENT
 const TRIANGLE_DEFAULT_OUTLINE_COLOR = Cesium.Color.MAGENTA
-const TRIANGLE_SELECTED_MATERIAL = Cesium.Color.YELLOW.withAlpha(0.35)
+const TRIANGLE_SELECTED_MATERIAL = TRIANGLE_DEFAULT_MATERIAL
 const TRIANGLE_SELECTED_OUTLINE_COLOR = Cesium.Color.YELLOW
 
 let selectedTriangleEntity: Cesium.Entity | null = null
@@ -71,7 +73,7 @@ function setTriangleHighlighted(entity: Cesium.Entity, highlighted: boolean): vo
     if (!entity.polygon) return
     const compact = window.innerWidth <= 700
     entity.polygon.material = new Cesium.ColorMaterialProperty(
-        highlighted ? TRIANGLE_SELECTED_MATERIAL : TRIANGLE_DEFAULT_MATERIAL
+        highlighted ? TRIANGLE_SELECTED_MATERIAL : TRIANGLE_TRANSPARENT_MATERIAL
     )
     entity.polygon.outlineColor = new Cesium.ConstantProperty(
         highlighted ? TRIANGLE_SELECTED_OUTLINE_COLOR : TRIANGLE_DEFAULT_OUTLINE_COLOR
@@ -565,7 +567,7 @@ function addPolygon(
         polygon: {
             hierarchy,
             perPositionHeight: true,
-            material: new Cesium.ColorMaterialProperty(TRIANGLE_DEFAULT_MATERIAL),
+            material: new Cesium.ColorMaterialProperty(TRIANGLE_TRANSPARENT_MATERIAL),
             outline: true,
             outlineWidth: compact ? 2 : 5,
             outlineColor: new Cesium.ConstantProperty(TRIANGLE_DEFAULT_OUTLINE_COLOR),
@@ -580,7 +582,7 @@ function addPolygon(
             text: triangleId,
             font: labelFont,
             fillColor: Cesium.Color.MAGENTA.withAlpha(0.9),
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
     })
 }
