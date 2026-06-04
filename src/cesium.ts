@@ -1,22 +1,17 @@
 import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
-import { CartesianCoord } from './CartesianCoord'
 import { FaceGeoPositions } from './FaceGeoPositions'
 import { UnitSphereCartesian } from './UnitSphereCartesian'
-import { cross_product, dot_product } from './vectorOps'
 import { Subtriangles } from './Subtriangles'
 import { loadIcosahedron } from './fuller'
 import { fullerData, isMobile, triangles, RADIUS } from './state'
+import { findClosestFace, findSubtriangle3D, projectToTriangle, findSubtriangle2D } from './fullercode'
 import type { Vec3 } from './Vec3'
 
 function toC3(v: Vec3): Cesium.Cartesian3 {
     return new Cesium.Cartesian3(v.x, v.y, v.z)
 }
 
-function vec3Distance(a: Vec3, b: Vec3): number {
-    const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z
-    return Math.sqrt(dx * dx + dy * dy + dz * dz)
-}
 
 // ─── Cesium setup ────────────────────────────────────────────────────────────
 
@@ -617,114 +612,50 @@ function findEnclosingTriangle(): void {
 
     const cameraCartographic = viewer.camera.positionCartographic
     const cameraUnitSphere = new UnitSphereCartesian(cameraCartographic)
-    const cameraNormalized = new CartesianCoord(cameraUnitSphere)
-    const cameraPosSurface = Cesium.Cartesian3.multiplyByScalar(
-        new Cesium.Cartesian3(cameraUnitSphere.x, cameraUnitSphere.y, cameraUnitSphere.z),
-        RADIUS,
-        new Cesium.Cartesian3()
-    )
+    const cameraPosSurface: Vec3 = {
+        x: cameraUnitSphere.x * RADIUS,
+        y: cameraUnitSphere.y * RADIUS,
+        z: cameraUnitSphere.z * RADIUS,
+    }
 
     const cameraEntity = viewer.entities.getById('camera')
     if (cameraEntity) {
-        cameraEntity.position = new Cesium.ConstantPositionProperty(cameraPosSurface)
+        cameraEntity.position = new Cesium.ConstantPositionProperty(toC3(cameraPosSurface))
         if (cameraEntity.point) cameraEntity.point.heightReference = new Cesium.ConstantProperty(Cesium.HeightReference.NONE)
         if (cameraEntity.label) cameraEntity.label.heightReference = new Cesium.ConstantProperty(Cesium.HeightReference.NONE)
     }
 
     const levelIndex = getLevelIndex(cameraCartographic.height)
     createLevels(levelIndex)
-
     for (let i = 0; i < entitiesLevels.length; i++) {
         entitiesLevels[i].show = i === levelIndex
     }
 
-    let minDist = Number.POSITIVE_INFINITY
-    let _closest: FaceGeoPositions | undefined
-    for (const faceObj of facesGeoPositions) {
-        const dist = vec3Distance(cameraUnitSphere, faceObj.center)
-        if (dist < minDist) { minDist = dist; _closest = faceObj }
-    }
-    if (!_closest) return
-    let currentFace: FaceGeoPositions = _closest
+    const closest = findClosestFace(facesGeoPositions, cameraUnitSphere)
+    if (!closest) return
+    let currentFace: FaceGeoPositions = closest
+
+    let g2d_Xc = 0, g2d_Yc = 0
 
     for (let i = 0; i < levelIndex; i++) {
         addSubtriangles(currentFace, i)
 
-        let enclosingTriangleId: number
-
+        let enclosingIdx: number
         if (i < transition3D2D) {
-            const p_ab  = new CartesianCoord(currentFace.v[3])
-            const p_bc  = new CartesianCoord(currentFace.v[4])
-            const p_ac  = new CartesianCoord(currentFace.v[5])
-            const p_a_ab  = new CartesianCoord(currentFace.v[6])
-            const p_ab_b  = new CartesianCoord(currentFace.v[11])
-            const p_b_bc  = new CartesianCoord(currentFace.v[9])
-            const p_bc_c  = new CartesianCoord(currentFace.v[14])
-            const p_c_ac  = new CartesianCoord(currentFace.v[12])
-            const p_ac_a  = new CartesianCoord(currentFace.v[8])
-            const p_ab_bc = new CartesianCoord(currentFace.v[10])
-            const p_bc_ac = new CartesianCoord(currentFace.v[13])
-            const p_ac_ab = new CartesianCoord(currentFace.v[7])
-
-            let cp = cross_product(p_ab, p_bc)
-            let dp = dot_product(cp, cameraNormalized)
-
-            if (dp > 0) {
-                cp = cross_product(p_ab_bc, p_ab_b); dp = dot_product(cp, cameraNormalized)
-                if (dp > 0) { enclosingTriangleId = 5 }
-                else {
-                    cp = cross_product(p_ab_b, p_b_bc); dp = dot_product(cp, cameraNormalized)
-                    if (dp > 0) { enclosingTriangleId = 6 }
-                    else {
-                        cp = cross_product(p_b_bc, p_ab_bc); dp = dot_product(cp, cameraNormalized)
-                        enclosingTriangleId = dp > 0 ? 8 : 7
-                    }
-                }
-            } else {
-                cp = cross_product(p_ac, p_ab); dp = dot_product(cp, cameraNormalized)
-                if (dp > 0) {
-                    cp = cross_product(p_ac_a, p_a_ab); dp = dot_product(cp, cameraNormalized)
-                    if (dp > 0) { enclosingTriangleId = 1 }
-                    else {
-                        cp = cross_product(p_a_ab, p_ac_ab); dp = dot_product(cp, cameraNormalized)
-                        if (dp > 0) { enclosingTriangleId = 3 }
-                        else {
-                            cp = cross_product(p_ac_ab, p_ac_a); dp = dot_product(cp, cameraNormalized)
-                            enclosingTriangleId = dp > 0 ? 15 : 2
-                        }
-                    }
-                } else {
-                    cp = cross_product(p_bc, p_ac); dp = dot_product(cp, cameraNormalized)
-                    if (dp > 0) {
-                        cp = cross_product(p_c_ac, p_bc_ac); dp = dot_product(cp, cameraNormalized)
-                        if (dp > 0) { enclosingTriangleId = 13 }
-                        else {
-                            cp = cross_product(p_bc_ac, p_bc_c); dp = dot_product(cp, cameraNormalized)
-                            if (dp > 0) { enclosingTriangleId = 10 }
-                            else {
-                                cp = cross_product(p_bc_c, p_c_ac); dp = dot_product(cp, cameraNormalized)
-                                enclosingTriangleId = dp > 0 ? 11 : 12
-                            }
-                        }
-                    } else {
-                        cp = cross_product(p_ac_ab, p_ab_bc); dp = dot_product(cp, cameraNormalized)
-                        if (dp > 0) { enclosingTriangleId = 4 }
-                        else {
-                            cp = cross_product(p_ab_bc, p_bc_ac); dp = dot_product(cp, cameraNormalized)
-                            if (dp > 0) { enclosingTriangleId = 9 }
-                            else {
-                                cp = cross_product(p_bc_ac, p_ac_ab); dp = dot_product(cp, cameraNormalized)
-                                enclosingTriangleId = dp > 0 ? 14 : 0
-                            }
-                        }
-                    }
-                }
-            }
+            enclosingIdx = findSubtriangle3D(currentFace, cameraUnitSphere)
         } else {
-            enclosingTriangleId = get2DEnclosingTriangle(currentFace, cameraPosSurface, i)
+            if (i === transition3D2D) {
+                const coords = projectToTriangle(currentFace, cameraPosSurface)
+                g2d_Xc = coords.Xc
+                g2d_Yc = coords.Yc
+            }
+            const result = findSubtriangle2D(g2d_Xc, g2d_Yc)
+            enclosingIdx = result.index
+            g2d_Xc = result.Xc
+            g2d_Yc = result.Yc
         }
 
-        const nextId: string = currentFace.faceId + currentFace.ids[enclosingTriangleId]
+        const nextId: string = currentFace.faceId + currentFace.ids[enclosingIdx]
         const next: FaceGeoPositions | undefined = triangles.find(t => t.faceId === nextId)
         if (!next) { console.log('Could not find face with id:', nextId); return }
         currentFace = next
@@ -732,72 +663,6 @@ function findEnclosingTriangle(): void {
         fullerCodeLabel.textContent = `fullercode: ${currentFace.faceId}`
         positionHeaderButtons()
     }
-}
-
-// ─── 2D enclosing triangle ────────────────────────────────────────────────────
-
-let _g2d_Xc = 0
-let _g2d_Yc = 0
-
-function get2DEnclosingTriangle(
-    faceGeo: FaceGeoPositions,
-    cameraCartesian: Cesium.Cartesian3,
-    levelIndex: number
-): number {
-    let Yc = _g2d_Yc
-    let Xc = _g2d_Xc
-
-    if (levelIndex <= transition3D2D) {
-        const origin = faceGeo.vertices[0]
-        const b1 = new CartesianCoord(
-            faceGeo.vertices[1].x - origin.x,
-            faceGeo.vertices[1].y - origin.y,
-            faceGeo.vertices[1].z - origin.z
-        )
-        const b2 = new CartesianCoord(
-            faceGeo.vertices[2].x - origin.x,
-            faceGeo.vertices[2].y - origin.y,
-            faceGeo.vertices[2].z - origin.z
-        )
-        const cameraVec = new CartesianCoord(
-            cameraCartesian.x - origin.x,
-            cameraCartesian.y - origin.y,
-            cameraCartesian.z - origin.z
-        )
-        const normal = cross_product(b1, b2)
-        const normSq = dot_product(normal, normal)
-        if (normSq !== 0) {
-            Yc = dot_product(cross_product(cameraVec, b2), normal) / normSq
-            Xc = dot_product(cross_product(b1, cameraVec), normal) / normSq
-        }
-    }
-
-    let ETiD = 0
-    if (Yc > 0.5) {
-        if (Yc > 0.75)                     { ETiD = 6;  Yc -= 0.75 }
-        else if (Xc > 0.25)                { ETiD = 8;  Yc -= 0.5; Xc -= 0.25 }
-        else if (Xc + Yc < 0.75)           { ETiD = 5;  Yc -= 0.5 }
-        else                               { ETiD = 7;  Yc = 0.75 - Yc; Xc = 0.25 - Xc }
-    } else if (Xc > 0.5) {
-        if (Xc > 0.75)                     { ETiD = 11; Xc -= 0.75 }
-        else if (Yc > 0.25)                { ETiD = 10; Xc -= 0.5; Yc -= 0.25 }
-        else if (Yc + Xc < 0.75)           { ETiD = 13; Xc -= 0.5 }
-        else                               { ETiD = 12; Yc = 0.25 - Yc; Xc = 0.75 - Xc }
-    } else if (Xc + Yc < 0.5) {
-        if (Yc > 0.25)                     { ETiD = 3;  Yc -= 0.25 }
-        else if (Xc > 0.25)                { ETiD = 15; Xc -= 0.25 }
-        else if (Xc + Yc < 0.25)           { ETiD = 1 }
-        else                               { ETiD = 2;  Xc = 0.5 - Xc; Yc = 0.5 - Yc }
-    } else {
-        if (Yc < 0.25)                     { ETiD = 14; Yc = 0.25 - Yc; Xc = 0.5 - Xc }
-        else if (Xc < 0.25)                { ETiD = 4;  Yc = 0.5 - Yc; Xc = 0.25 - Xc }
-        else if (Xc + Yc > 0.75)           { ETiD = 9;  Yc = 0.5 - Yc; Xc = 0.5 - Xc }
-        else                               { ETiD = 0;  Xc -= 0.25; Yc -= 0.25 }
-    }
-
-    _g2d_Xc = Xc * 4
-    _g2d_Yc = Yc * 4
-    return ETiD
 }
 
 // ─── Subtriangle management ───────────────────────────────────────────────────
