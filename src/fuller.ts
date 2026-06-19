@@ -22,6 +22,7 @@ interface IcosahedronData {
 
 interface IcosahedronLoadResult {
     vertices: Array<{ id: number; pos: Vec3 }>
+    faces: IcosahedronFace[]
 }
 
 export async function loadIcosahedron(): Promise<IcosahedronLoadResult> {
@@ -43,5 +44,5 @@ export async function loadIcosahedron(): Promise<IcosahedronLoadResult> {
     fullerData.facesGeoPositions = facesGeoPositions
     fullerData.facesPositions = facesGeoPositions.map(f => f.vertices)
 
-    return { vertices }
+    return { vertices, faces: data.faces }
 }

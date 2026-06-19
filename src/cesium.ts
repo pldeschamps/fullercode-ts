@@ -4,6 +4,7 @@ import { FaceGeoPositions } from './FaceGeoPositions'
 import { UnitSphereCartesian } from './UnitSphereCartesian'
 import { Subtriangles } from './Subtriangles'
 import { loadIcosahedron } from './fuller'
+import { initTelstar } from './telstar'
 import { fullerData, isMobile, triangles, RADIUS } from './state'
 import { findClosestFace, findSubtriangle3D, projectToTriangle, findSubtriangle2D } from './fullercode'
 import type { Vec3 } from './Vec3'
@@ -12,6 +13,57 @@ function toC3(v: Vec3): Cesium.Cartesian3 {
     return new Cesium.Cartesian3(v.x, v.y, v.z)
 }
 
+type IcosahedronFace = { id: string; vertices: number[]; subtrianglesids: string }
+
+function edgeKey(a: number, b: number): string {
+    return a < b ? `${a}-${b}` : `${b}-${a}`
+}
+
+function interpolateOnSphere(a: Vec3, b: Vec3, t: number): Vec3 {
+    const x = a.x * (1 - t) + b.x * t
+    const y = a.y * (1 - t) + b.y * t
+    const z = a.z * (1 - t) + b.z * t
+    const len = Math.sqrt(x * x + y * y + z * z)
+    return { x: (x / len) * RADIUS, y: (y / len) * RADIUS, z: (z / len) * RADIUS }
+}
+
+function raiseAboveSphere(v: Vec3, offset: number): Vec3 {
+    const len = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+    return { x: (v.x / len) * (len + offset), y: (v.y / len) * (len + offset), z: (v.z / len) * (len + offset) }
+}
+
+function sampleGreatCircle(a: Vec3, b: Vec3, segments: number): Vec3[] {
+    const ax = a.x
+    const ay = a.y
+    const az = a.z
+    const bx = b.x
+    const by = b.y
+    const bz = b.z
+    const naLen = Math.sqrt(ax * ax + ay * ay + az * az)
+    const nbLen = Math.sqrt(bx * bx + by * by + bz * bz)
+    const na = { x: ax / naLen, y: ay / naLen, z: az / naLen }
+    const nb = { x: bx / nbLen, y: by / nbLen, z: bz / nbLen }
+    const dot = Math.max(-1, Math.min(1, na.x * nb.x + na.y * nb.y + na.z * nb.z))
+    const omega = Math.acos(dot)
+    const sinOmega = Math.sin(omega)
+    const pts: Vec3[] = []
+    for (let i = 0; i <= segments; i++) {
+        const t = i / segments
+        let factorA: number, factorB: number
+        if (sinOmega === 0) {
+            factorA = 1 - t
+            factorB = t
+        } else {
+            factorA = Math.sin((1 - t) * omega) / sinOmega
+            factorB = Math.sin(t * omega) / sinOmega
+        }
+        const x = factorA * na.x + factorB * nb.x
+        const y = factorA * na.y + factorB * nb.y
+        const z = factorA * na.z + factorB * nb.z
+        pts.push({ x: x * RADIUS, y: y * RADIUS, z: z * RADIUS })
+    }
+    return pts
+}
 
 // ─── Cesium setup ────────────────────────────────────────────────────────────
 
@@ -51,6 +103,9 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 if (viewer.scene.sun) viewer.scene.sun.show = false
 if (viewer.scene.moon) viewer.scene.moon.show = false
 viewer.scene.globe.depthTestAgainstTerrain = false
+
+// Telstar controller (set after data load)
+let telstarController: { rootEntity: Cesium.Entity; toggle: (show?: boolean) => void } | null = null
 
 // ─── Triangle highlight state ─────────────────────────────────────────────────
 
@@ -201,6 +256,34 @@ fullerCodeCenterBtn.className = 'fullerCodeCenter'
 fullerCodeCenterBtn.setAttribute('aria-label', 'Center on my location')
 viewer.container.appendChild(fullerCodeCenterBtn)
 
+// Telstar toggle button (pink outline with Telstar icon)
+const telstarToggleBtn = document.createElement('button')
+telstarToggleBtn.id = 'telstarToggle'
+telstarToggleBtn.type = 'button'
+telstarToggleBtn.className = 'telstarToggle'
+telstarToggleBtn.setAttribute('aria-label', 'Toggle Telstar ball')
+telstarToggleBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 32 32" id="Telstar" height="22" width="22">
+    <desc>
+        Telstar
+    </desc>
+    <!-- white background for the ball -->
+    <circle cx="16" cy="16" r="16" fill="#ffffff" />
+  <g>
+    <path fill="#000000" d="M30.967 15.996c0.0105 -0.3565 0.1045 -5.452 -2.911 -8.769 -0.134 -0.2965 -0.7695 -1.4915 -2.8205 -2.952a20.9795 20.9795 0 0 0 -2.8875 -1.8815l-0.004 -0.002C22.216 2.323 19.715 1 16.6795 1c-0.2305 0 -0.4585 0.0135 -0.684 0.029V1.025c-2.3145 -0.0505 -4.6135 0.545 -5.999 1.1705 -1.229 0.555 -2.5935 1.4855 -2.692 1.5575C5.6025 4.705 2.375 8.5255 2.1195 10.55c-1.0315 1.3185 -1.8935 7.241 0.002 10.8485 1.329 5.0135 6.332 7.5225 6.73 7.715 0.242 0.1545 2.9685 1.84 6.318 1.84 0.1405 0 0.99 0.047 1.293 0.047 3.6205 0 8.9855 -2.552 10.1085 -4.551 3.0855 -2.257 4.685 -8.0735 4.396 -10.4535ZM8.879 23.5275c-1.4345 -2.3205 -2.252 -5.3525 -2.427 -6.049 0.454 -0.6805 2.6935 -3.9825 3.9695 -4.976 0.7225 0.133 3.7395 0.687 6.585 1.202 0.3575 0.9265 1.926 5.0145 2.375 6.5925 -0.495 0.587 -2.4395 2.851 -4.354 4.624 -2.0325 0.0095 -5.4895 -1.163 -6.1485 -1.3935ZM26.912 7.29c-0.006 0.225 -0.0595 1.025 -0.4425 1.9435 -0.7605 -0.3885 -2.672 -1.2205 -5.292 -1.361 -0.3965 -0.5855 -1.8885 -2.627 -4.245 -4.043 0.3225 -0.631 0.7715 -1.4005 1.034 -1.635 0.085 -0.024 0.217 -0.046 0.418 -0.046 1.2635 0 3.4465 0.8275 3.6365 0.901 0.2015 0.1065 4.1255 2.2195 4.891 4.2405ZM5.8865 17.006c-1.7115 -0.292 -2.729 -0.824 -3.033 -1.004 -0.6365 -2.3085 -0.124 -4.8035 -0.045 -5.161 0.628 -1.123 2.416 -3.9855 3.5955 -4.529 1.2225 -0.2495 2.747 0.0605 3.368 0.212 -0.0585 0.8075 -0.171 3.0635 0.163 5.431 -1.353 1.089 -3.4945 4.2235 -4.0485 5.051ZM15.8425 1.765c0.384 0.0285 0.9475 0.1125 1.3335 0.227 -0.385 0.512 -0.7795 1.271 -0.966 1.646 -0.785 0.1285 -3.7665 0.6985 -6.1055 2.215 -0.4715 -0.125 -1.8955 -0.4585 -3.244 -0.3435 0.334 -0.6465 0.833 -1.1245 0.8865 -1.1735 0.1855 -0.133 3.7565 -2.6315 8.0955 -2.5775v0.0065Zm9.548 19.0465c-0.585 -0.024 -2.839 -0.1525 -5.3105 -0.733 -0.4735 -1.651 -2.037 -5.722 -2.3945 -6.648a278.293 278.293 0 0 1 3.464 -4.827c2.844 0.156 4.841 1.1935 5.2275 1.41 1.6475 2.6495 2.009 5.3555 2.0585 5.8075 -0.875 2.723 -2.6055 4.5565 -3.045 4.9905ZM1.8275 14.2595c0.042 0.633 0.1435 1.2995 0.327 1.9585a5.869 5.869 0 0 0 -0.341 1.3255 16.5195 16.5195 0 0 1 0.014 -3.284Zm4.822 11.6795c0.754 -0.7265 1.6835 -1.4335 2.044 -1.7005 0.815 0.287 4.162 1.4185 6.2955 1.4185 0.3635 0.4875 1.552 2.014 3.009 3.181 -0.907 0.8875 -2.217 1.3065 -2.4485 1.376 -4.0635 0.109 -8.021 -2.175 -8.9 -4.275Zm10.7315 4.269c0.461 -0.2685 0.9415 -0.622 1.339 -1.0695 0.6485 -0.0895 3.4315 -0.5685 5.9465 -2.416 0.166 0.018 0.4395 0.04 0.745 0.0315 -1.509 1.4785 -5.191 3.13 -8.0305 3.454Zm7.712 -4.188c0.9035 -2.354 0.865 -4.129 0.8205 -4.696 0.496 -0.486 2.198 -2.2995 3.1425 -5.0565 0.509 0.085 0.84 0.2145 0.997 0.287 0.0545 0.2 0.1455 0.662 0.094 1.3625 -0.385 2.5215 -1.714 6.3 -4.042 7.9705 -0.234 0.1195 -0.646 0.1455 -1.012 0.1325Z" stroke-width="0.5"></path>
+    </g>
+</svg>`
+telstarToggleBtn.style.border = '2px solid #ff69b4'
+telstarToggleBtn.style.borderRadius = '6px'
+telstarToggleBtn.style.width = '36px'
+telstarToggleBtn.style.height = '36px'
+telstarToggleBtn.style.padding = '4px'
+telstarToggleBtn.style.background = 'transparent'
+telstarToggleBtn.style.cursor = 'pointer'
+telstarToggleBtn.style.position = 'absolute'
+telstarToggleBtn.style.zIndex = '1000'
+viewer.container.appendChild(telstarToggleBtn)
+
 const shareMenu = document.createElement('div')
 shareMenu.id = 'shareMenu'
 shareMenu.className = 'shareMenu'
@@ -238,6 +321,14 @@ function positionHeaderButtons(): void {
         const shareRect = fullerCodeShareBtn.getBoundingClientRect()
         fullerCodeCenterBtn.style.left = shareRect.left - containerRect.left + shareRect.width + 8 + 'px'
         fullerCodeCenterBtn.style.top = rect.top - containerRect.top + 'px'
+        try {
+            const centerRect = fullerCodeCenterBtn.getBoundingClientRect()
+            telstarToggleBtn.style.left = centerRect.left - containerRect.left + centerRect.width + 8 + 'px'
+            telstarToggleBtn.style.top = rect.top - containerRect.top + 'px'
+        } catch {
+            telstarToggleBtn.style.left = '380px'
+            telstarToggleBtn.style.top = '8px'
+        }
         shareMenu.style.left = shareRect.left - containerRect.left + 'px'
         shareMenu.style.top = shareRect.bottom - containerRect.top + 4 + 'px'
     } catch {
@@ -245,6 +336,8 @@ function positionHeaderButtons(): void {
         fullerCodeShareBtn.style.left = '300px'
         shareMenu.style.left = '300px'
         shareMenu.style.top = '40px'
+        telstarToggleBtn.style.left = '380px'
+        telstarToggleBtn.style.top = '8px'
     }
 }
 
@@ -347,6 +440,17 @@ async function copyFullercodeLink(): Promise<void> {
     }
 }
 fullerCodeCopyBtn.addEventListener('click', copyFullercodeLink)
+
+telstarToggleBtn.addEventListener('click', () => {
+    try {
+        if (!telstarController) return
+        const currently = !!telstarController.rootEntity.show
+        telstarController.toggle(!currently)
+        telstarToggleBtn.classList.toggle('active', !currently)
+    } catch (e) {
+        console.error('Telstar toggle failed', e)
+    }
+})
 
 // ─── Fuller code input ────────────────────────────────────────────────────────
 
@@ -511,18 +615,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100)
 })
 
-loadIcosahedron().then(({ vertices }) => {
-    vertices.forEach(({ id, pos }) => {
-        viewer.entities.add({
-            position: toC3(pos),
-            point: { pixelSize: 3, color: Cesium.Color.MAGENTA },
-            label: {
-                text: id.toString(),
-                font: '24px sans-serif',
-                pixelOffset: new Cesium.Cartesian2(0, -12),
-            },
-        })
-    })
+loadIcosahedron().then(({ vertices, faces }) => {
+    try {
+        telstarController = initTelstar(viewer, vertices, faces, RADIUS, { fillAlpha: 0.2, segments: 12, offset: 30 })
+        // ensure button reflects initial state
+        telstarToggleBtn.classList.toggle('active', !!telstarController?.rootEntity.show)
+    } catch (e) {
+        console.error('Failed to initialize Telstar:', e)
+    }
 }).catch(err => console.error('Failed to load icosahedron:', err))
 
 // ─── Camera events ────────────────────────────────────────────────────────────
@@ -589,7 +689,7 @@ function addPolygon(
         label: {
             text: triangleId,
             font: labelFont,
-            fillColor: Cesium.Color.MAGENTA.withAlpha(0.9),
+            fillColor: Cesium.Color.MAGENTA.withAlpha(0.0),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
     })
