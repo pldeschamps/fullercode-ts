@@ -689,7 +689,7 @@ function addPolygon(
         label: {
             text: triangleId,
             font: labelFont,
-            fillColor: Cesium.Color.MAGENTA.withAlpha(0.0),
+            fillColor: Cesium.Color.MAGENTA.withAlpha(0.8),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
     })
