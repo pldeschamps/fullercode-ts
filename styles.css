@@ -83,8 +83,8 @@ html,body{width: 100%;
   display: none;
   top: 154px;
   left: 10px;
-  max-width: min(420px, calc(100vw - 20px));
-  background: rgba(10, 2, 122, 0.9);
+  max-width: min(440px, calc(100vw - 20px));
+  background: rgba(10, 2, 122, 0.95);
   color: #f0ff6a;
   font-family: monospace;
   font-size: 1em;
@@ -93,11 +93,67 @@ html,body{width: 100%;
   border: 1px solid #f0ff6a;
   border-radius: 6px;
   z-index: 100000;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 #triangleDetails.visible {
   display: block;
+}
+
+.triangleDetailsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.triangleDetailsCode {
+  color: #56fc8d;
+  font-weight: 700;
+}
+
+.triangleDetailsActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.triangleDetailsTab,
+.triangleDetailsClose {
+  border: 1px solid rgba(240, 255, 106, 0.75);
+  background: rgba(0, 0, 0, 0.25);
+  color: #f0ff6a;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: monospace;
+  font-size: 0.95em;
+  cursor: pointer;
+}
+
+.triangleDetailsTab.active {
+  background: rgba(240, 255, 106, 0.2);
+  color: #ffffff;
+}
+
+.triangleDetailsClose {
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 2px 7px;
+}
+
+.triangleDetailsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.triangleDetailsRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 /* Copy button next to the fullerCodeWidget */

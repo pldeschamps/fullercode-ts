@@ -116,8 +116,9 @@ const TRIANGLE_SELECTED_MATERIAL = TRIANGLE_DEFAULT_MATERIAL
 const TRIANGLE_SELECTED_OUTLINE_COLOR = Cesium.Color.YELLOW
 
 let selectedTriangleEntity: Cesium.Entity | null = null
-let triangleDetailsTimeout: ReturnType<typeof setTimeout> | null = null
 let triangleDetailsLabel: HTMLElement | null = null
+let triangleDetailsActiveEntity: Cesium.Entity | null = null
+let triangleDetailsTab: 'S' | 'L' | 'A' = 'S'
 
 function getTriangleEntityFromSelectedEntity(entity: Cesium.Entity | undefined): Cesium.Entity | null {
     if (!entity || typeof entity.id !== 'string') return null
@@ -171,24 +172,97 @@ function formatArea(squareMeters: number): string {
     return `${squareMeters.toFixed(1)} m2`
 }
 
-function showTriangleDetails(entity: Cesium.Entity): void {
-    if (!triangleDetailsLabel) return
-    const triangleId = entity.id.substring('triangle '.length)
+function formatLength(meters: number): string {
+    if (!Number.isFinite(meters)) return '-'
+    return `${meters.toFixed(1)} m`
+}
+
+function hideTriangleDetails(): void {
+    if (selectedTriangleEntity) {
+        setTriangleHighlighted(selectedTriangleEntity, false)
+    }
+    selectedTriangleEntity = null
+    triangleDetailsActiveEntity = null
+    triangleDetailsTab = 'S'
+    triangleDetailsLabel?.classList.remove('visible')
+}
+
+function renderTriangleDetails(): void {
+    if (!triangleDetailsLabel || !triangleDetailsActiveEntity) return
+    const rawId = triangleDetailsActiveEntity.id
+    if (typeof rawId !== 'string' || !rawId.startsWith('triangle ')) {
+        hideTriangleDetails()
+        return
+    }
+    const triangleId = rawId.substring('triangle '.length)
     const face = triangles.find(t => t.faceId === triangleId)
     if (!face) return
+
     const [c0, c1, c2] = face.vertices.map(toC3)
     const vertices = [c0, c1, c2].map(formatVertex)
     const area = getSphericalTriangleArea(c0, c1, c2)
+    const lengths: Array<[string, number]> = [
+        ['AB', getCentralAngle(c0, c1) * RADIUS],
+        ['BC', getCentralAngle(c1, c2) * RADIUS],
+        ['AC', getCentralAngle(c2, c0) * RADIUS],
+    ]
+
+    let body = ''
+    if (triangleDetailsTab === 'L') {
+        body = `
+            <div class="triangleDetailsRow"><span>AB</span><span>${formatLength(lengths[0][1])}</span></div>
+            <div class="triangleDetailsRow"><span>BC</span><span>${formatLength(lengths[1][1])}</span></div>
+            <div class="triangleDetailsRow"><span>AC</span><span>${formatLength(lengths[2][1])}</span></div>
+        `
+    } else if (triangleDetailsTab === 'A') {
+        body = `<div class="triangleDetailsRow"><span>surface</span><span>${formatArea(area)}</span></div>`
+    } else {
+        body = `
+            <div class="triangleDetailsRow"><span>A</span><span>${vertices[0] ?? '-'}</span></div>
+            <div class="triangleDetailsRow"><span>B</span><span>${vertices[1] ?? '-'}</span></div>
+            <div class="triangleDetailsRow"><span>C</span><span>${vertices[2] ?? '-'}</span></div>
+        `
+    }
+
     triangleDetailsLabel.innerHTML = `
-        <div>code: ${triangleId}</div>
-        <div>A: ${vertices[0] ?? '-'}</div>
-        <div>B: ${vertices[1] ?? '-'}</div>
-        <div>C: ${vertices[2] ?? '-'}</div>
-        <div>surface: ${formatArea(area)}</div>
+        <div class="triangleDetailsHeader">
+            <div class="triangleDetailsCode">code: ${triangleId}</div>
+            <div class="triangleDetailsActions">
+                <button class="triangleDetailsTab ${triangleDetailsTab === 'S' ? 'active' : ''}" data-tab="S" aria-label="Summits">S</button>
+                <button class="triangleDetailsTab ${triangleDetailsTab === 'L' ? 'active' : ''}" data-tab="L" aria-label="Lengths">L</button>
+                <button class="triangleDetailsTab ${triangleDetailsTab === 'A' ? 'active' : ''}" data-tab="A" aria-label="Area">A</button>
+                <button class="triangleDetailsClose" data-action="close" aria-label="Close">×</button>
+            </div>
+        </div>
+        <div class="triangleDetailsBody">${body}</div>
     `
+
     triangleDetailsLabel.classList.add('visible')
-    if (triangleDetailsTimeout) clearTimeout(triangleDetailsTimeout)
-    triangleDetailsTimeout = setTimeout(() => triangleDetailsLabel?.classList.remove('visible'), 2000)
+
+    triangleDetailsLabel.querySelectorAll<HTMLButtonElement>('.triangleDetailsTab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab as 'S' | 'L' | 'A' | undefined
+            if (tab) {
+                triangleDetailsTab = tab
+                renderTriangleDetails()
+            }
+        })
+    })
+
+    triangleDetailsLabel.querySelector<HTMLButtonElement>('.triangleDetailsClose')?.addEventListener('click', () => {
+        hideTriangleDetails()
+    })
+}
+
+function showTriangleDetails(entity: Cesium.Entity): void {
+    if (!triangleDetailsLabel) return
+    const rawId = entity.id
+    if (typeof rawId !== 'string' || !rawId.startsWith('triangle ')) return
+    const triangleId = rawId.substring('triangle '.length)
+    const face = triangles.find(t => t.faceId === triangleId)
+    if (!face) return
+    triangleDetailsActiveEntity = entity
+    renderTriangleDetails()
 }
 
 function selectTriangleEntity(triangleEntity: Cesium.Entity): void {
