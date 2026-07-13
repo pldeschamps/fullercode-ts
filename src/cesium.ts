@@ -72,6 +72,81 @@ Cesium.Ion.defaultAccessToken = ''
 const transition3D2D = 11
 const sphereEllipsoid = new Cesium.Ellipsoid(RADIUS, RADIUS, RADIUS)
 
+const NATO_ALPHABET_MAP: Record<string, string> = {
+    '2': 'Z',
+    '3': 'E',
+    '5': 'W',
+    '7': 'Y',
+    '8': 'B',
+    '9': 'G',
+}
+const NATO_INPUT_MAP: Record<string, string> = {
+    Z: '2',
+    E: '3',
+    W: '5',
+    Y: '7',
+    B: '8',
+    G: '9',
+}
+let natoAlphabetEnabled = false
+let currentFullerCodeValue = ''
+let initialNatoUrlMode = false
+
+type ParsedFullercodeUrl = {
+    code: string
+    nato: boolean
+}
+
+function getDisplayCode(code: string): string {
+    const normalized = code.toUpperCase()
+    if (!natoAlphabetEnabled) return normalized
+    return Array.from(normalized).map(ch => NATO_ALPHABET_MAP[ch] ?? ch).join('')
+}
+
+function getBaseCode(code: string): string {
+    const normalized = code.toUpperCase()
+    return Array.from(normalized).map(ch => NATO_INPUT_MAP[ch] ?? ch).join('')
+}
+
+function normalizeFullercodeUrlValue(value: string, nato: boolean): string {
+    const code = nato ? getBaseCode(value) : value
+    return code.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, MAX_FULLERCODE_LEN)
+}
+
+function syncFullerCodeInputDisplay(): void {
+    const code = getBaseCode(currentFullerCodeValue || fullerCodeInput.value)
+    currentFullerCodeValue = code
+    fullerCodeInput.value = getDisplayCode(code)
+}
+
+function refreshDisplayedCodes(): void {
+    const displayCode = getDisplayCode(currentFullerCodeValue || getBaseCode(fullerCodeInput.value))
+    fullerCodeLabel.textContent = `@@${displayCode}`
+
+    viewer.entities.values.forEach(entity => {
+        if (typeof entity.id === 'string' && entity.id.startsWith('label ')) {
+            const triangleId = entity.id.substring('label '.length)
+            if (entity.label) {
+                entity.label.text = new Cesium.ConstantProperty(getDisplayCode(triangleId))
+            }
+        }
+    })
+
+    if (triangleDetailsActiveEntity) {
+        renderTriangleDetails()
+    }
+}
+
+function setNatoAlphabetEnabled(enabled: boolean): void {
+    natoAlphabetEnabled = enabled
+    if (natoToggleBtn) {
+        natoToggleBtn.classList.toggle('active', enabled)
+        natoToggleBtn.setAttribute('aria-pressed', String(enabled))
+    }
+    syncFullerCodeInputDisplay()
+    refreshDisplayedCodes()
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const imageryProviderViewModels: Cesium.ProviderViewModel[] = (Cesium as any).createDefaultImageryProviderViewModels()
 let osmProviderViewModel = imageryProviderViewModels.find((p: Cesium.ProviderViewModel) =>
@@ -226,7 +301,7 @@ function renderTriangleDetails(): void {
 
     triangleDetailsLabel.innerHTML = `
         <div class="triangleDetailsHeader">
-            <div class="triangleDetailsCode">code: ${triangleId}</div>
+            <div class="triangleDetailsCode">code: ${getDisplayCode(triangleId)}</div>
             <div class="triangleDetailsActions">
                 <button class="triangleDetailsTab ${triangleDetailsTab === 'S' ? 'active' : ''}" data-tab="S" aria-label="Summits">S</button>
                 <button class="triangleDetailsTab ${triangleDetailsTab === 'L' ? 'active' : ''}" data-tab="L" aria-label="Lengths">L</button>
@@ -330,6 +405,27 @@ fullerCodeCenterBtn.className = 'fullerCodeCenter'
 fullerCodeCenterBtn.setAttribute('aria-label', 'Center on my location')
 viewer.container.appendChild(fullerCodeCenterBtn)
 
+const natoToggleBtn = document.createElement('button')
+natoToggleBtn.id = 'natoToggle'
+natoToggleBtn.type = 'button'
+natoToggleBtn.className = 'natoToggle'
+natoToggleBtn.setAttribute('aria-label', 'Toggle NATO alphabet')
+natoToggleBtn.setAttribute('aria-pressed', 'false')
+natoToggleBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="100 55 220 245" width="24" height="24" aria-hidden="true">
+        <g transform="translate(-298.79911,-689.79307)">
+            <path
+                d="M 531.17885,876.66156 c 0,0 8.07828,-2.92732 9.17828,-3.36655 1.1,-0.43922 3.575,-1.27688 5.5,-1.86147 18.88099,-5.73381 29.25285,-8.9784 39,-12.20024 18.20708,-5.3596 41.10422,-12.41972 5,-4.43463 -14.72261,3.56021 -29.61419,6.2839 -44.429,9.39532 -1.68905,0.53607 -5.9883,1.65751 -9.55388,2.49208 l -6.48289,1.51739 -6.96666,-6.74208 c -3.83166,-3.70814 -7.71715,-7.52958 -8.63441,-8.49208 -0.91726,-0.9625 -2.28997,-1.76368 -3.05046,-1.78041 -0.90783,-0.02 -0.75037,-0.39799 0.45847,-1.10071 1.27235,-0.73964 17.41914,-0.92101 52.26359,-0.58706 27.73232,0.26579 50.64863,0.1172 50.92513,-0.33019 0.69237,-1.12028 -0.42262,-1.6822 -6.65038,-3.3516 -2.95873,-0.79311 -10.55451,-3.08122 -16.87951,-5.0847 -14.24062,-4.51079 -20.02705,-6.2474 -36.5,-10.95433 -7.15,-2.04301 -13.4275,-4.13002 -13.95,-4.63778 -0.5225,-0.50777 -1.91191,-0.92322 -3.08758,-0.92322 -1.72448,0 -0.45113,-0.87854 -1.92014,-5.51733 -5.99923,-19.74419 -14.52062,-39.57013 -20.61292,-59.28455 -1.73741,-5.66604 -3.40475,-10.05606 -3.7052,-9.75561 -0.54875,0.54875 0.3779,5.22857 3.9716,20.05749 2.53596,10.46432 2.10797,8.49809 6.20365,28.5 1.97085,9.625 6.03312,19.08267 6.53596,20.73267 0.50283,1.65 -0.68071,4.20338 -0.13879,5.95855 0.95133,3.08115 0.74765,3.42066 -5.90563,9.84387 -3.79002,3.65895 -6.89095,6.85981 -6.89095,7.11301 0,0.2532 -1.34792,1.89846 -2.99537,3.65613 l -2.99538,3.19577 1.95044,-54.76733 c 1.71238,-48.0829 -2.29373,-54.544 -3.46364,-49.73267 -0.73555,3.025 -2.94354,10.45 -4.90664,16.5 -1.9631,6.05 -4.29904,13.475 -5.19098,16.5 -4.10736,13.6973 -8.48515,27.31146 -12.6844,40.98067 -1.227,4.01952 -1.77154,4.57469 -5.29088,5.39424 -2.15771,0.50246 -4.14811,1.21947 -4.42311,1.59336 -7.2179,2.8746 -14.89408,4.79678 -22.31914,7.18495 -13.75729,3.73652 -27.13641,8.7962 -40.9718,12.2777 -1.53499,0.34524 -2.55823,1.00417 -2.27387,1.46429 0.55759,0.90219 4.82732,0.45195 8.06477,-0.85043 1.1,-0.44251 5.825,-1.5175 10.5,-2.38885 4.675,-0.87136 11.425,-2.26286 15,-3.09222 17.46204,-4.05102 38.88358,-8.75024 42.14672,-9.24567 3.50293,-0.53184 4.00568,-0.19778 12.75,8.47192 5.00681,4.96407 9.10328,9.31222 9.10328,9.66256 0,0.35033 -23.60258,0.50433 -52.45019,0.34222 -30.0786,-0.16902 -52.07589,0.0795 -51.57265,0.58261 0.48265,0.48254 5.29773,2.20698 10.70019,3.83209 5.40246,1.62511 15.67265,4.73681 22.82265,6.91489 9.28604,2.96821 18.71467,5.46606 28,8.43353 2.2,0.71851 6.7,2.08577 10,3.03835 3.3,0.95258 6.5097,2.1194 7.13266,2.59293 0.62296,0.47354 2.13009,4.1122 3.34918,8.08592 1.2191,3.97372 3.24479,10.37494 4.50155,14.22494 2.59068,7.93637 16.90629,50.6985 19.1104,58.05724 0.39993,0.69747 -5.14735,-22.40071 -10.63368,-47.55724 -0.61947,-3.025 -2.42113,-11.125 -4.0037,-18 -5.01628,-21.7918 -5.45475,-19.15057 4.85798,-29.26298 4.90055,-4.80536 9.26505,-8.73702 9.69887,-8.73702 0.43383,0 0.46229,23.4 0.0633,52 -0.45553,32.65013 -0.87233,48.5 0.22359,52 0.522,0 -2.33493,-0.25 -2.33493,-0.25 0,0 20.04131,-54.04216 24.8565,-78.30774 z m -37.35352,54.30774 c -0.0679,-2.66976 -3.19353,-5.20749 -7.89606,-6.41095 -2.70163,-0.6914 -7.08557,-2.34203 -9.7421,-3.66806 -9.10364,-4.54418 -11.83064,-6.01508 -12.33004,-6.65062 -0.275,-0.34996 -1.53584,-1.34393 -2.80187,-2.20882 -4.83284,-3.30154 -16.02997,-14.78251 -18.90317,-19.38235 -4.68856,-7.50614 -7.31973,-12.85384 -9.31353,-18.9292 -2.23114,-6.79857 -5.62612,-11.2432 -7.30885,-9.56859 -1.50313,1.49588 2.45203,14.42612 7.05633,23.06859 7.14713,13.41549 12.63076,19.94532 23.77109,28.30631 8.6711,6.5078 20.76978,12.6709 29.5,15.02739 7.01316,1.89301 8.00709,1.94494 7.9682,0.4163 z m 40.0318,-1.35253 c 23.25776,-6.21694 45.27001,-26.00232 54.40093,-48.89747 6.35421,-15.93274 6.63241,-18.69671 1.63091,-16.20319 -1.69021,0.84266 -2.69399,2.45239 -3.24957,5.21124 -0.73559,3.6527 -8.30959,20.31995 -9.76646,21.49195 -0.34185,0.275 -1.94775,2.27952 -3.56867,4.45448 -3.05785,4.10303 -12.02068,13.29914 -14.66387,15.04552 -0.83243,0.55 -3.93671,2.60086 -6.89839,4.55746 -7.10252,4.6922 -13.26447,7.56171 -19.38488,9.0272 -5.78067,1.38413 -8.00435,2.98554 -8.22569,5.92382 -0.1145,1.52013 0.30337,1.95807 1.53416,1.60783 0.93034,-0.26475 4.61653,-1.26322 8.19153,-2.21884 z M 430.89026,829.3607 c 2.76812,-9.02769 5.65824,-15.22755 10.64092,-22.82683 5.69452,-8.68491 17.84457,-20.74065 24.11573,-23.92852 2.04062,-1.03733 3.93522,-2.11105 4.21022,-2.38605 1.25902,-1.25902 9.68339,-5.00526 11.25,-5.00278 0.9625,0.002 1.75,-0.3718 1.75,-0.82962 0,-0.45782 2.1375,-1.24532 4.75,-1.75 2.6125,-0.50468 4.75689,-1.3676 4.76531,-1.9176 0.008,-0.55 0.37445,-1.56568 0.81338,-2.25706 1.43684,-2.26321 -2.40973,-2.62545 -8.21701,-0.77381 -7.96757,2.54044 -25.02858,11.05791 -28.79741,14.3767 -8.63191,7.60116 -11.21557,10.26805 -16.06427,16.58168 -2.8875,3.7599 -5.25,7.45185 -5.25,8.20433 0,0.75249 -0.45,1.36816 -1,1.36816 -0.55,0 -1,0.45221 -1,1.0049 0,0.5527 -1.16904,3.3652 -2.59786,6.25 -2.6213,5.29244 -5.36837,13.88304 -5.39027,16.85643 -0.009,1.17408 0.65521,1.48381 2.44642,1.14139 1.78292,-0.34082 2.76504,-1.47034 3.57484,-4.11132 z m 162.96687,4.50782 c 0,-0.19292 -0.39658,-1.65542 -0.88129,-3.25 -3.2055,-10.54525 -4.63095,-14.39922 -5.3258,-14.39922 -0.4361,0 -0.79291,-1.0699 -0.79291,-2.37756 0,-1.30765 -0.675,-2.93775 -1.5,-3.62244 -0.825,-0.68469 -1.5,-1.7114 -1.5,-2.28158 0,-1.72198 -10.46833,-15.2182 -15,-19.33863 -8.17487,-7.43304 -10.88638,-9.4416 -16.86656,-12.49397 -3.64839,-1.8622 -6.85844,-3.61082 -7.13344,-3.88582 -0.85659,-0.85659 -13.30755,-4.87038 -17.26891,-5.56695 -3.699,-0.65043 -3.75119,-0.61613 -2.81384,1.84929 0.52528,1.38161 0.68379,2.78328 0.35224,3.11484 -0.33155,0.33155 0.37038,0.60282 1.55986,0.60282 3.95689,0 14.55635,4.26406 23.00706,9.25551 8.43661,4.98313 19.49088,14.08387 18.41449,15.16025 -0.32133,0.32133 0.16577,0.58424 1.08243,0.58424 0.91667,0 1.66667,0.61197 1.66667,1.35993 0,0.74796 1.125,2.20476 2.5,3.23735 1.375,1.03258 2.5,2.27425 2.5,2.75926 0,0.48501 1.52087,3.4157 3.3797,6.51265 3.13298,5.21975 7.02716,14.99738 7.80099,19.58696 0.18139,1.07589 1.45245,2.26853 2.82456,2.65032 3.12228,0.86878 3.99475,0.98732 3.99475,0.54275 z"
+                fill="currentColor"
+                stroke="#0b5fe8"
+                stroke-width="2.9"
+                stroke-miterlimit="4"
+            />
+        </g>
+    </svg>
+`
+viewer.container.appendChild(natoToggleBtn)
+
 // Telstar toggle button (pink outline with Telstar icon)
 const telstarToggleBtn = document.createElement('button')
 telstarToggleBtn.id = 'telstarToggle'
@@ -363,19 +459,19 @@ shareMenu.id = 'shareMenu'
 shareMenu.className = 'shareMenu'
 shareMenu.innerHTML = `
   <button class="shareOption" data-app="googlemaps" aria-label="Open in Google Maps">
-    <img class="app-icon" src="https://www.google.com/s2/favicons?domain=www.google.com/maps&sz=64" width="20" height="20" alt="Google Maps">
+    <span class="app-icon googleMapsIcon" aria-hidden="true">G</span>
     <span>Google Maps</span>
   </button>
   <button class="shareOption" data-app="applemaps" aria-label="Open in Apple Maps">
-    <img class="app-icon" src="https://www.google.com/s2/favicons?domain=maps.apple.com/&sz=64" width="20" height="20" alt="Apple Maps">
+    <span class="app-icon appleMapsIcon" aria-hidden="true">A</span>
     <span>Apple Maps</span>
   </button>
   <button class="shareOption" data-app="waze" aria-label="Open in Waze">
-    <img class="app-icon" src="https://www.waze.com/favicon.ico" width="20" height="20" alt="Waze">
+    <span class="app-icon wazeIcon" aria-hidden="true">W</span>
     <span>Waze</span>
   </button>
   <button class="shareOption" data-app="herewego" aria-label="Open in Here We Go">
-    <img class="app-icon" src="https://www.google.com/s2/favicons?domain=wego.here.com&sz=64" width="20" height="20" alt="Here We Go">
+    <span class="app-icon hereWeGoIcon" aria-hidden="true">H</span>
     <span>Here WeGo</span>
   </button>
 `
@@ -397,10 +493,15 @@ function positionHeaderButtons(): void {
         fullerCodeCenterBtn.style.top = rect.top - containerRect.top + 'px'
         try {
             const centerRect = fullerCodeCenterBtn.getBoundingClientRect()
-            telstarToggleBtn.style.left = centerRect.left - containerRect.left + centerRect.width + 8 + 'px'
+            natoToggleBtn.style.left = centerRect.left - containerRect.left + centerRect.width + 8 + 'px'
+            natoToggleBtn.style.top = rect.top - containerRect.top + 'px'
+            const natoRect = natoToggleBtn.getBoundingClientRect()
+            telstarToggleBtn.style.left = natoRect.left - containerRect.left + natoRect.width + 8 + 'px'
             telstarToggleBtn.style.top = rect.top - containerRect.top + 'px'
         } catch {
-            telstarToggleBtn.style.left = '380px'
+            natoToggleBtn.style.left = '380px'
+            natoToggleBtn.style.top = '8px'
+            telstarToggleBtn.style.left = '460px'
             telstarToggleBtn.style.top = '8px'
         }
         shareMenu.style.left = shareRect.left - containerRect.left + 'px'
@@ -410,7 +511,9 @@ function positionHeaderButtons(): void {
         fullerCodeShareBtn.style.left = '300px'
         shareMenu.style.left = '300px'
         shareMenu.style.top = '40px'
-        telstarToggleBtn.style.left = '380px'
+        natoToggleBtn.style.left = '380px'
+        natoToggleBtn.style.top = '8px'
+        telstarToggleBtn.style.left = '460px'
         telstarToggleBtn.style.top = '8px'
     }
 }
@@ -489,10 +592,16 @@ positionHeaderButtons()
 window.addEventListener('resize', positionHeaderButtons)
 
 async function copyFullercodeLink(): Promise<void> {
-    const labelText = (fullerCodeLabel.textContent ?? '').trim()
-    let code = (labelText.match(/([A-Z0-9]+)$/i)?.[1] ?? '').toUpperCase()
-    if (!code) code = fullerCodeInput.value.trim().toUpperCase()
-    const url = 'https://www.fullercode.org/index.html' + (code ? '#' + code : '')
+    let code = getBaseCode(currentFullerCodeValue || fullerCodeInput.value).toUpperCase()
+    if (!code) {
+        code = getBaseCode((fullerCodeLabel.textContent ?? '').trim()).toUpperCase()
+    }
+    const hash = code
+        ? natoAlphabetEnabled
+            ? '#nato@@' + getDisplayCode(code)
+            : '#' + code
+        : ''
+    const url = 'https://www.fullercode.org/index.html' + hash
     try {
         if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(url)
@@ -514,6 +623,10 @@ async function copyFullercodeLink(): Promise<void> {
     }
 }
 fullerCodeCopyBtn.addEventListener('click', copyFullercodeLink)
+
+natoToggleBtn.addEventListener('click', () => {
+    setNatoAlphabetEnabled(!natoAlphabetEnabled)
+})
 
 telstarToggleBtn.addEventListener('click', () => {
     try {
@@ -550,12 +663,15 @@ const LevelHeights = isMobile
 fullerCodeInput.maxLength = MAX_FULLERCODE_LEN
 fullerCodeInput.addEventListener('input', function () {
     const raw = (this.value ?? '').toUpperCase()
+    const normalized = getBaseCode(raw)
     let filtered = ''
-    for (let i = 0; i < raw.length && filtered.length < MAX_FULLERCODE_LEN; i++) {
-        const ch = raw[i]
+    for (let i = 0; i < normalized.length && filtered.length < MAX_FULLERCODE_LEN; i++) {
+        const ch = normalized[i]
         if (i === 0 ? ALLOWED_FIRST.includes(ch) : ALLOWED_REST.includes(ch)) filtered += ch
     }
-    if (this.value !== filtered) this.value = filtered
+    currentFullerCodeValue = filtered
+    const displayValue = getDisplayCode(filtered)
+    if (this.value !== displayValue) this.value = displayValue
     if (filtered.length > 1) {
         const idx = Math.min(filtered.length - 1, LevelHeights.length - 1)
         const prevIdx = Math.max(filtered.length - 2, 0)
@@ -566,24 +682,25 @@ fullerCodeInput.addEventListener('input', function () {
 })
 
 fullerCodeInput.addEventListener('keypress', function (e: KeyboardEvent) {
-    if (e.key === 'Enter') flyToCode(this.value.trim())
+    if (e.key === 'Enter') flyToCode(currentFullerCodeValue || this.value.trim())
 })
 
 function flyToCode(code: string): void {
-    if (!code) { console.log('invalid code'); return }
+    const baseCode = getBaseCode(code).toUpperCase()
+    if (!baseCode) { console.log('invalid code'); return }
     if (!fullerData.facesGeoPositions) { console.log('Cannot fly: data not ready'); return }
 
-    let targetTriangle = triangles.find(t => t.faceId === code)
+    let targetTriangle = triangles.find(t => t.faceId === baseCode)
     if (!targetTriangle) {
         try {
-            createLevels(code.length)
-            for (let i = 1; i <= code.length; i++) {
-                const partial = code.substring(0, i)
+            createLevels(baseCode.length)
+            for (let i = 1; i <= baseCode.length; i++) {
+                const partial = baseCode.substring(0, i)
                 const sub = triangles.find(t => t.faceId === partial)
                 if (sub) addSubtriangles(sub, i - 1)
                 else console.log('Could not find parent triangle for:', partial)
             }
-            targetTriangle = triangles.find(t => t.faceId === code)
+            targetTriangle = triangles.find(t => t.faceId === baseCode)
         } catch (e) {
             console.error('Error creating subtriangles:', e)
         }
@@ -600,19 +717,24 @@ function flyToCode(code: string): void {
             console.error('Error flying to triangle:', e)
         }
     } else {
-        console.log('Fullercode not found:', code)
+        console.log('Fullercode not found:', baseCode)
     }
 }
 
 // ─── URL parsing ──────────────────────────────────────────────────────────────
 
-function parseFullercodeFromUrl(): string | null {
-    const MAX = MAX_FULLERCODE_LEN
+function parseFullercodeFromUrl(): ParsedFullercodeUrl | null {
     let code: string | null = null
+    let nato = false
 
     if (window.location.hash && window.location.hash.length > 1) {
-        let h = window.location.hash.substring(1)
-        if (h.startsWith('@')) h = h.substring(1)
+        let h = decodeURIComponent(window.location.hash.substring(1)).trim()
+        if (h.toUpperCase().startsWith('NATO')) {
+            nato = true
+            h = h.substring(4).replace(/^@+/, '')
+        } else if (h.startsWith('@')) {
+            h = h.replace(/^@+/, '')
+        }
         if (h.length > 0) code = h.split(/[/?&#]/)[0]
     }
 
@@ -623,7 +745,7 @@ function parseFullercodeFromUrl(): string | null {
         } else {
             for (const p of raw.split('&')) {
                 const [, val] = p.split('=')
-                if (val) { code = val.toUpperCase().replace(/[^A-Z0-9]/g, ''); break }
+                if (val) { code = val; break }
             }
         }
     }
@@ -641,8 +763,11 @@ function parseFullercodeFromUrl(): string | null {
         }
     }
 
-    if (!code) return null
-    return code.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, MAX)
+    if (!code && !nato) return null
+    if (!code && nato) return { code: '', nato }
+    const normalized = normalizeFullercodeUrlValue(code ?? '', nato)
+    if (!normalized) return null
+    return { code: normalized, nato }
 }
 
 // ─── Imagery layer tweaks ─────────────────────────────────────────────────────
@@ -674,15 +799,23 @@ const addedSub: string[] = []
 // ─── Initialisation on data load ─────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-    const initCode = parseFullercodeFromUrl()
+    const initUrl = parseFullercodeFromUrl()
+    initialNatoUrlMode = !!initUrl?.nato
+    if (initialNatoUrlMode) {
+        setNatoAlphabetEnabled(true)
+        if (telstarController) {
+            telstarController.toggle(false)
+            telstarToggleBtn.classList.toggle('active', false)
+        }
+    }
     const interval = setInterval(() => {
         if (fullerData.facesPositions) {
             console.log('Data loaded, initializing...')
             addPolygons(fullerData.facesGeoPositions!, entitiesLevels[0])
-            if (initCode) {
-                fullerCodeInput.value = initCode
+            if (initUrl?.code) {
+                fullerCodeInput.value = initUrl.code
                 fullerCodeInput.dispatchEvent(new Event('input', { bubbles: true }))
-                setTimeout(() => flyToCode(initCode), 1000)
+                setTimeout(() => flyToCode(initUrl.code), 1000)
             }
             clearInterval(interval)
         }
@@ -692,6 +825,9 @@ document.addEventListener('DOMContentLoaded', () => {
 loadIcosahedron().then(({ vertices, faces }) => {
     try {
         telstarController = initTelstar(viewer, vertices, faces, RADIUS, { fillAlpha: 0.2, segments: 12, offset: 30 })
+        if (initialNatoUrlMode) {
+            telstarController.toggle(false)
+        }
         // ensure button reflects initial state
         telstarToggleBtn.classList.toggle('active', !!telstarController?.rootEntity.show)
     } catch (e) {
@@ -761,7 +897,7 @@ function addPolygon(
         parent: parentEntity,
         position: toC3(center),
         label: {
-            text: triangleId,
+            text: getDisplayCode(triangleId),
             font: labelFont,
             fillColor: Cesium.Color.MAGENTA.withAlpha(0.8),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -834,7 +970,8 @@ function findEnclosingTriangle(): void {
         if (!next) { console.log('Could not find face with id:', nextId); return }
         currentFace = next
 
-        fullerCodeLabel.textContent = `@@${currentFace.faceId}`
+        currentFullerCodeValue = currentFace.faceId
+        fullerCodeLabel.textContent = `@@${getDisplayCode(currentFace.faceId)}`
         positionHeaderButtons()
     }
 }

@@ -221,6 +221,37 @@ html,body{width: 100%;
   height: 20px;
 }
 
+.natoToggle {
+  position: absolute;
+  z-index: 100000;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid #4da3ff;
+  background: rgba(5, 28, 114, 0.82);
+  color: #7bd7ff;
+  font-family: monospace;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+}
+
+.natoToggle svg {
+  display: block;
+  width: 42px;
+  height: 42px;
+  transform: translateY(1px);
+}
+
+.natoToggle.active {
+  background: rgba(31, 113, 255, 0.32);
+  border-color: #9eeaff;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(77, 163, 255, 0.45);
+}
+
 /* Share menu */
 .shareMenu {
   position: absolute;
@@ -264,6 +295,31 @@ html,body{width: 100%;
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.googleMapsIcon {
+  background: #1a73e8;
+}
+
+.appleMapsIcon {
+  background: #111111;
+}
+
+.wazeIcon {
+  background: #33ccff;
+  color: #001018;
+}
+
+.hereWeGoIcon {
+  background: #00afaa;
 }
 
 .fullerCodeCopy:active,
