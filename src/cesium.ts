@@ -296,12 +296,12 @@ viewer.canvas.addEventListener('click', (event: MouseEvent) => {
 
 const cameraLabel = document.createElement('div')
 cameraLabel.id = 'cameraWidget'
-cameraLabel.textContent = 'Lat: - Lon: - Alt: -'
+cameraLabel.textContent = 'La: - Lo: - Al: -'
 viewer.container.appendChild(cameraLabel)
 
 const fullerCodeLabel = document.createElement('div')
 fullerCodeLabel.id = 'fullerCodeWidget'
-fullerCodeLabel.textContent = 'fullercode: '
+fullerCodeLabel.textContent = '@@'
 viewer.container.appendChild(fullerCodeLabel)
 
 const fullerCodeCopyBtn = document.createElement('button')
@@ -775,7 +775,7 @@ function updateCameraLabel(): void {
     const carto = viewer.camera.positionCartographic
     const lat = Cesium.Math.toDegrees(carto.latitude).toFixed(6)
     const lon = Cesium.Math.toDegrees(carto.longitude).toFixed(6)
-    cameraLabel.textContent = `Lat: ${lat} Lon: ${lon} Alt: ${carto.height.toFixed(0)}`
+    cameraLabel.textContent = `La:${lat} Lo:${lon} Al:${carto.height.toFixed(0)}`
 }
 
 // ─── Enclosing triangle finder ────────────────────────────────────────────────
@@ -834,7 +834,7 @@ function findEnclosingTriangle(): void {
         if (!next) { console.log('Could not find face with id:', nextId); return }
         currentFace = next
 
-        fullerCodeLabel.textContent = `fullercode: ${currentFace.faceId}`
+        fullerCodeLabel.textContent = `@@${currentFace.faceId}`
         positionHeaderButtons()
     }
 }
