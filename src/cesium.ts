@@ -164,6 +164,7 @@ if (!osmProviderViewModel) {
 
 const viewer = new Cesium.Viewer('cesiumContainer', {
     ellipsoid: sphereEllipsoid,
+    mapProjection: new Cesium.WebMercatorProjection(Cesium.Ellipsoid.WGS84),
     imageryProviderViewModels,
     selectedImageryProviderViewModel: osmProviderViewModel,
     animation: false,
@@ -178,6 +179,22 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 if (viewer.scene.sun) viewer.scene.sun.show = false
 if (viewer.scene.moon) viewer.scene.moon.show = false
 viewer.scene.globe.depthTestAgainstTerrain = false
+
+const openSeaMapLayer = viewer.imageryLayers.addImageryProvider(
+    new Cesium.UrlTemplateImageryProvider({
+        url: 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+        tilingScheme: new Cesium.WebMercatorTilingScheme({ ellipsoid: Cesium.Ellipsoid.WGS84 }),
+        maximumLevel: 18,
+        credit: '<a href="https://www.openseamap.org/" target="_blank" rel="noopener">&copy; OpenSeaMap contributors</a>',
+    })
+)
+
+function syncOpenSeaMapVisibility(): void {
+    openSeaMapLayer.show = viewer.scene.mode === Cesium.SceneMode.SCENE2D
+}
+
+syncOpenSeaMapVisibility()
+viewer.scene.morphComplete.addEventListener(syncOpenSeaMapVisibility)
 
 // Telstar controller (set after data load)
 let telstarController: { rootEntity: Cesium.Entity; toggle: (show?: boolean) => void } | null = null
@@ -839,6 +856,7 @@ loadIcosahedron().then(({ vertices, faces }) => {
 
 viewer.camera.changed.addEventListener(findEnclosingTriangle)
 viewer.camera.changed.addEventListener(updateCameraLabel)
+viewer.scene.morphComplete.addEventListener(findEnclosingTriangle)
 updateCameraLabel()
 
 // ─── Polygon drawing ──────────────────────────────────────────────────────────
@@ -935,7 +953,7 @@ function findEnclosingTriangle(): void {
         if (cameraEntity.label) cameraEntity.label.heightReference = new Cesium.ConstantProperty(Cesium.HeightReference.NONE)
     }
 
-    const levelIndex = getLevelIndex(cameraCartographic.height)
+    const levelIndex = getVisibleLevelIndex(cameraCartographic.height)
     createLevels(levelIndex)
     for (let i = 0; i < entitiesLevels.length; i++) {
         entitiesLevels[i].show = i === levelIndex
@@ -998,4 +1016,10 @@ function getLevelIndex(height: number): number {
         if (height >= LevelHeights[i]) return i
     }
     return LevelHeights.length
+}
+
+function getVisibleLevelIndex(height: number): number {
+    const levelIndex = getLevelIndex(height)
+    if (viewer.scene.mode !== Cesium.SceneMode.SCENE2D) return levelIndex
+    return Math.min(levelIndex + 1, MAX_FULLERCODE_LEN - 1)
 }
