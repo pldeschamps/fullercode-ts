@@ -17,6 +17,7 @@ export default defineConfig({
         { src: 'base.css', dest: '.' },
         { src: 'styles.css', dest: '.' },
         { src: 'underthehood.html', dest: '.' },
+        { src: 'privacy-policy.html', dest: '.' },
         { src: 'share.svg', dest: '.' },
         { src: 'telstar.svg', dest: '.' },
       ],
