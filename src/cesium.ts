@@ -176,6 +176,37 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyBox: false,
     skyAtmosphere: false,
 })
+
+const viewportCenter = new Cesium.Cartesian2()
+const lastSynchronizedSurfacePosition = new Cesium.Cartesian3(Number.NaN, Number.NaN, Number.NaN)
+let lastSynchronizedAltitude = Number.NaN
+
+function getViewCenterOnEllipsoid(result?: Cesium.Cartesian3): Cesium.Cartesian3 | undefined {
+    const canvas = viewer.scene.canvas
+    viewportCenter.x = canvas.clientWidth / 2
+    viewportCenter.y = canvas.clientHeight / 2
+    const position = viewer.camera.pickEllipsoid(viewportCenter, sphereEllipsoid)
+    return position ? Cesium.Cartesian3.clone(position, result) : undefined
+}
+
+function getCurrentSurfacePosition(result?: Cesium.Cartesian3): Cesium.Cartesian3 {
+    const center = getViewCenterOnEllipsoid(result)
+    if (center) return center
+
+    const cameraCartographic = viewer.camera.positionCartographic
+    return Cesium.Cartesian3.fromRadians(
+        cameraCartographic.longitude,
+        cameraCartographic.latitude,
+        0,
+        sphereEllipsoid,
+        result
+    )
+}
+
+function getViewCenterCartographic(): Cesium.Cartographic {
+    return sphereEllipsoid.cartesianToCartographic(getCurrentSurfacePosition())
+}
+
 if (viewer.scene.sun) viewer.scene.sun.show = false
 if (viewer.scene.moon) viewer.scene.moon.show = false
 viewer.scene.globe.depthTestAgainstTerrain = false
@@ -568,7 +599,7 @@ document.addEventListener('click', (e: MouseEvent) => {
 document.querySelectorAll<HTMLButtonElement>('.shareOption').forEach(btn => {
     btn.addEventListener('click', async () => {
         const app = btn.dataset.app
-        const carto = viewer.camera.positionCartographic
+        const carto = getViewCenterCartographic()
         const lat = Cesium.Math.toDegrees(carto.latitude).toFixed(6)
         const lon = Cesium.Math.toDegrees(carto.longitude).toFixed(6)
         const labelText = (fullerCodeLabel.textContent ?? '').trim()
@@ -802,9 +833,20 @@ viewer.scene.screenSpaceCameraController.enableTilt = false
 
 viewer.entities.add({
     id: 'camera',
-    position: Cesium.Cartesian3.fromDegrees(0, 90, 0, sphereEllipsoid),
-    point: { pixelSize: 5, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
-    label: { text: 'your position', font: '24px sans-serif', pixelOffset: new Cesium.Cartesian2(0, -12) },
+    position: new Cesium.CallbackPositionProperty((_time, result) => getCurrentSurfacePosition(result), false),
+    point: {
+        pixelSize: 5,
+        color: Cesium.Color.RED,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 1,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
+    label: {
+        text: 'your position',
+        font: '24px sans-serif',
+        pixelOffset: new Cesium.Cartesian2(0, -12),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
 })
 
 const entitiesLevels: Cesium.Entity[] = []
@@ -829,6 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fullerData.facesPositions) {
             console.log('Data loaded, initializing...')
             addPolygons(fullerData.facesGeoPositions!, entitiesLevels[0])
+            synchronizeCurrentPosition(true)
             if (initUrl?.code) {
                 fullerCodeInput.value = initUrl.code
                 fullerCodeInput.dispatchEvent(new Event('input', { bubbles: true }))
@@ -854,10 +897,9 @@ loadIcosahedron().then(({ vertices, faces }) => {
 
 // ─── Camera events ────────────────────────────────────────────────────────────
 
-viewer.camera.changed.addEventListener(findEnclosingTriangle)
-viewer.camera.changed.addEventListener(updateCameraLabel)
-viewer.scene.morphComplete.addEventListener(findEnclosingTriangle)
-updateCameraLabel()
+viewer.scene.preRender.addEventListener(() => synchronizeCurrentPosition())
+viewer.scene.morphComplete.addEventListener(() => synchronizeCurrentPosition(true))
+synchronizeCurrentPosition(true)
 
 // ─── Polygon drawing ──────────────────────────────────────────────────────────
 
@@ -925,20 +967,38 @@ function addPolygon(
 
 // ─── Camera label update ──────────────────────────────────────────────────────
 
-function updateCameraLabel(): void {
-    const carto = viewer.camera.positionCartographic
+function updateCameraLabel(carto: Cesium.Cartographic, altitude: number): void {
     const lat = Cesium.Math.toDegrees(carto.latitude).toFixed(6)
     const lon = Cesium.Math.toDegrees(carto.longitude).toFixed(6)
-    cameraLabel.textContent = `La:${lat} Lo:${lon} Al:${carto.height.toFixed(0)}`
+    cameraLabel.textContent = `La:${lat} Lo:${lon} Al:${altitude.toFixed(0)}`
+}
+
+function synchronizeCurrentPosition(force = false): void {
+    const surfacePosition = getCurrentSurfacePosition()
+    const altitude = viewer.camera.positionCartographic.height
+    const positionChanged = !Cesium.Cartesian3.equalsEpsilon(
+        surfacePosition,
+        lastSynchronizedSurfacePosition,
+        Cesium.Math.EPSILON12,
+        0.001
+    )
+    const altitudeChanged = Math.abs(altitude - lastSynchronizedAltitude) >= 0.01
+    if (!force && !positionChanged && !altitudeChanged) return
+
+    Cesium.Cartesian3.clone(surfacePosition, lastSynchronizedSurfacePosition)
+    lastSynchronizedAltitude = altitude
+
+    const cartographic = sphereEllipsoid.cartesianToCartographic(surfacePosition)
+    updateCameraLabel(cartographic, altitude)
+    findEnclosingTriangle(cartographic, altitude)
 }
 
 // ─── Enclosing triangle finder ────────────────────────────────────────────────
 
-function findEnclosingTriangle(): void {
+function findEnclosingTriangle(cameraCartographic: Cesium.Cartographic, cameraHeight: number): void {
     const facesGeoPositions = fullerData.facesGeoPositions
     if (!facesGeoPositions) return
 
-    const cameraCartographic = viewer.camera.positionCartographic
     const cameraUnitSphere = new UnitSphereCartesian(cameraCartographic)
     const cameraPosSurface: Vec3 = {
         x: cameraUnitSphere.x * RADIUS,
@@ -946,14 +1006,7 @@ function findEnclosingTriangle(): void {
         z: cameraUnitSphere.z * RADIUS,
     }
 
-    const cameraEntity = viewer.entities.getById('camera')
-    if (cameraEntity) {
-        cameraEntity.position = new Cesium.ConstantPositionProperty(toC3(cameraPosSurface))
-        if (cameraEntity.point) cameraEntity.point.heightReference = new Cesium.ConstantProperty(Cesium.HeightReference.NONE)
-        if (cameraEntity.label) cameraEntity.label.heightReference = new Cesium.ConstantProperty(Cesium.HeightReference.NONE)
-    }
-
-    const levelIndex = getVisibleLevelIndex(cameraCartographic.height)
+    const levelIndex = getVisibleLevelIndex(cameraHeight)
     createLevels(levelIndex)
     for (let i = 0; i < entitiesLevels.length; i++) {
         entitiesLevels[i].show = i === levelIndex
