@@ -164,7 +164,7 @@ if (!osmProviderViewModel) {
 
 const viewer = new Cesium.Viewer('cesiumContainer', {
     ellipsoid: sphereEllipsoid,
-    mapProjection: new Cesium.WebMercatorProjection(Cesium.Ellipsoid.WGS84),
+
     imageryProviderViewModels,
     selectedImageryProviderViewModel: osmProviderViewModel,
     animation: false,
@@ -176,7 +176,8 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     skyBox: false,
     skyAtmosphere: false,
 })
-
+// I have removed the following parameter because it has modified how the camera behavior, the altitude, the levels of triangles. It has moved the label "You Position" northward out of the screen:
+//     mapProjection: new Cesium.WebMercatorProjection(Cesium.Ellipsoid.WGS84),
 const viewportCenter = new Cesium.Cartesian2()
 const lastSynchronizedSurfacePosition = new Cesium.Cartesian3(Number.NaN, Number.NaN, Number.NaN)
 let lastSynchronizedAltitude = Number.NaN
@@ -705,8 +706,9 @@ const MAX_FULLERCODE_LEN = 12
 const ALLOWED_FIRST = 'CM3FA2H5PX9V8TR7NSJK'
 const ALLOWED_REST = 'CM3FA2H5PX9V8TR7'
 const LevelHeights = isMobile
-    ? [5_000_000, 1_800_000, 600_000, 140_000, 60_000, 6_000, 1_200, 400, 120, 16, 4]
-    : [6_500_000, 2_600_000, 1_000_000, 200_000, 100_000, 10_000, 1_800, 700, 170, 50, 10]
+    ? [5_000_000, 1_800_000, 600_000, 140_000, 60_000, 6_000, 1200, 400, 120, 16, 4]
+    : [6_500_000, 2_600_000, 1_000_000, 200_000, 100_000, 10_000, 1800, 700, 170, 50, 10]
+const LevelHeights2D = [5_000_000, 1_800_000, 600_000, 140_000, 60_000, 10_000, 6_000, 400, 120, 16, 4]
 
 fullerCodeInput.maxLength = MAX_FULLERCODE_LEN
 fullerCodeInput.addEventListener('input', function () {
@@ -1064,15 +1066,16 @@ function createLevels(levelIndex: number): void {
     }
 }
 
-function getLevelIndex(height: number): number {
-    for (let i = 0; i < LevelHeights.length; i++) {
-        if (height >= LevelHeights[i]) return i
+function getLevelIndex(height: number, levelHeights = LevelHeights): number {
+    for (let i = 0; i < levelHeights.length; i++) {
+        if (height >= levelHeights[i]) return i
     }
-    return LevelHeights.length
+    return levelHeights.length
 }
 
 function getVisibleLevelIndex(height: number): number {
-    const levelIndex = getLevelIndex(height)
-    if (viewer.scene.mode !== Cesium.SceneMode.SCENE2D) return levelIndex
-    return Math.min(levelIndex + 1, MAX_FULLERCODE_LEN - 1)
+    const levelHeights = viewer.scene.mode === Cesium.SceneMode.SCENE2D
+        ? LevelHeights2D
+        : LevelHeights
+    return Math.min(getLevelIndex(height, levelHeights), MAX_FULLERCODE_LEN - 1)
 }
