@@ -887,9 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
 loadIcosahedron().then(({ vertices, faces }) => {
     try {
         telstarController = initTelstar(viewer, vertices, faces, RADIUS, { fillAlpha: 0.2, segments: 12, offset: 30 })
-        if (initialNatoUrlMode) {
-            telstarController.toggle(false)
-        }
+        telstarController.toggle(false)
         // ensure button reflects initial state
         telstarToggleBtn.classList.toggle('active', !!telstarController?.rootEntity.show)
     } catch (e) {
